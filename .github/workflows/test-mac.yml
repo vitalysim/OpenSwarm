@@ -1,0 +1,22 @@
+name: Test Platforms
+on: workflow_dispatch
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test startup
+        run: |
+          timeout 30 npx --yes @vrsen/openswarm 2>&1 | tee output.txt || true
+          grep -q "Traceback" output.txt && exit 1 || exit 0
+        env:
+          OPENSWARM_DEMO_SILENCE_CONSOLE: "0"
