@@ -1,6 +1,6 @@
 {
     "name": "@vrsen/openswarm",
-    "version": "0.1.11",
+    "version": "0.1.14",
     "description": "An open-source multi-agent AI team built on Agency Swarm",
     "license": "MIT",
     "bin": {
@@ -33,7 +33,6 @@
         "postinstall": "patch-package && node -e \"try{require('fs').chmodSync(require('path').join(__dirname,'bin','openswarm'),0o755)}catch(e){}\""
     },
     "dependencies": {
-        "@vrsen/openswarm": "^0.1.4",
         "dom-to-pptx": "1.1.5",
         "patch-package": "^8.0.1",
         "playwright": "^1.59.1",
