@@ -8,7 +8,7 @@
     },
     "files": [
         "bin/",
-        "run_utils.py",
+        "agency.py",
         "onboard.py",
         "swarm.py",
         "config.py",
@@ -33,6 +33,7 @@
         "postinstall": "patch-package && node -e \"try{require('fs').chmodSync(require('path').join(__dirname,'bin','openswarm'),0o755)}catch(e){}\""
     },
     "dependencies": {
+        "@vrsen/agentswarm": "latest",
         "dom-to-pptx": "1.1.5",
         "patch-package": "^8.0.1",
         "playwright": "^1.59.1",
