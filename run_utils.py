@@ -11,10 +11,10 @@ def _resolve_bin_name() -> str:
     machine = platform.machine().lower()
     arch = "arm64" if machine in ("arm64", "aarch64") else "x64"
     if sys.platform == "win32":
-        return f"agency-windows-{arch}.exe"
+        return "agentswarm.exe"
     if sys.platform == "darwin":
-        return f"agency-darwin-{arch}"
-    return f"agency-linux-{arch}"
+        return f"agentswarm-darwin-{arch}"
+    return f"agentswarm-linux-{arch}"
 
 
 # ── Bootstrap: create venv + install deps automatically on first run ─────────
@@ -116,7 +116,7 @@ def _bootstrap() -> None:
     _bin_path = _repo / _bin_name
     if not _bin_path.exists():
         import urllib.request
-        _bin_url = f"https://github.com/VRSEN/OpenSwarm/releases/latest/download/{_bin_name}"
+        _bin_url = f"https://github.com/ArtemShatokhin/agentswarm-cli/releases/latest/download/{_bin_name}"
         print("Downloading OpenSwarm TUI, please wait…\n")
         try:
             urllib.request.urlretrieve(_bin_url, str(_bin_path))

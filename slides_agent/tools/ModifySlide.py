@@ -230,8 +230,11 @@ def _get_caller_openai_client(tool) -> "AsyncOpenAI | None":
     agents = getattr(master, "agents", {})
     agent = agents.get(agent_name) if agent_name else None
     model = getattr(agent, "model", None)
-    client = getattr(model, "_client", None)
-    return client if isinstance(client, AsyncOpenAI) else None
+    for attr in ("_client", "openai_client", "client"):
+        maybe = getattr(model, attr, None)
+        if isinstance(maybe, AsyncOpenAI):
+            return maybe
+    return None
 
 
 def _make_html_writer_agent(tool=None) -> Agent:
@@ -248,7 +251,11 @@ def _make_html_writer_agent(tool=None) -> Agent:
     else:
         from agents import OpenAIResponsesModel
         from openai import AsyncOpenAI
-        client = (tool and _get_caller_openai_client(tool)) or AsyncOpenAI()
+        caller_client = tool and _get_caller_openai_client(tool)
+        client = AsyncOpenAI(
+            api_key=caller_client.api_key,
+            base_url=str(caller_client.base_url),
+        ) if caller_client else AsyncOpenAI()
         model = OpenAIResponsesModel(model=_HTML_WRITER_MODEL_OAI, openai_client=client)
     return Agent(
         name="Slide HTML Writer",

@@ -9,6 +9,7 @@ from PIL import Image
 from pydantic import Field, field_validator, model_validator
 
 from agency_swarm import BaseTool
+from shared_tools.openai_client_utils import get_openai_client
 
 from .utils.image_io import (
     get_images_dir,
@@ -145,10 +146,6 @@ class CombineImages(BaseTool):
         return results, usage_metadata
 
     def _run_openai(self, images_dir, reference_images: list[Image.Image]):
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise RuntimeError("OPENAI_API_KEY is required for OpenAI image composition.")
-
         size = get_openai_size_for_aspect_ratio(self.aspect_ratio)
 
         input_buffers: list[BytesIO] = []
@@ -160,7 +157,7 @@ class CombineImages(BaseTool):
             input_buffers.append(buffer)
 
         try:
-            client = OpenAI(api_key=api_key)
+            client = get_openai_client(tool=self)
             response = client.images.edit(
                 model=self.model,
                 image=input_buffers,

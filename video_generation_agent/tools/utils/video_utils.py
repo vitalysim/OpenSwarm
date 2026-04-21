@@ -88,14 +88,7 @@ def resolve_ffmpeg_executable() -> str:
     )
 
 
-def get_openai_client() -> OpenAI:
-    """Instantiate an OpenAI client from the environment."""
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError(
-            "OPENAI_API_KEY environment variable is required for video operations"
-        )
-    return OpenAI(api_key=api_key)
+from shared_tools.openai_client_utils import get_openai_client
 
 
 def get_gemini_client():

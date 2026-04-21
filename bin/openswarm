@@ -71,6 +71,25 @@ if (!agentswarmBin) {
   process.exit(1)
 }
 
+function ensureNodeModules() {
+  const nodeModules = path.join(packageDir, 'node_modules')
+  if (!fs.existsSync(nodeModules)) {
+    process.stdout.write('Installing Node.js dependencies...\n')
+    const result = spawnSync(
+      'npm',
+      ['install', '--legacy-peer-deps', '--ignore-scripts'],
+      { cwd: packageDir, stdio: 'pipe', shell: true }
+    )
+    if (result.status !== 0 || result.error) {
+      process.stderr.write(`openswarm: npm install failed\n`)
+      if (result.error) process.stderr.write(`openswarm: ${result.error.message}\n`)
+      if (result.stderr) process.stderr.write(result.stderr.toString())
+    }
+  }
+}
+
+ensureNodeModules()
+
 ensureCustomBinary().then((customBinary) => {
   const env = { ...process.env, AGENTSWARM_LAUNCHER: process.env.AGENTSWARM_LAUNCHER || '1' }
   if (customBinary) env.AGENTSWARM_BIN_PATH = customBinary

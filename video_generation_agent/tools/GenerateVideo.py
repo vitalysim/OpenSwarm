@@ -18,6 +18,7 @@ from PIL import Image as PILImage
 from io import BytesIO
 
 from agency_swarm import BaseTool, ToolOutputText
+from shared_tools.openai_client_utils import get_openai_client
 
 from .utils.video_utils import (
     ensure_not_blank,
@@ -179,13 +180,7 @@ class GenerateVideo(BaseTool):
     async def _generate_with_sora(self, model: str) -> dict:
         """Generate video using OpenAI's Sora API."""
 
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise RuntimeError(
-                "OPENAI_API_KEY environment variable is required for video operations"
-            )
-
-        client: OpenAI = OpenAI(api_key=api_key)
+        client = get_openai_client(tool=self)
         reference_file = None
         
         try:

@@ -219,7 +219,7 @@ class EditVideoContent(BaseTool):
         return output
 
     async def _run_remix(self, payload: RemixMode) -> list:
-        client = get_openai_client()
+        client = get_openai_client(tool=self)
         loop = asyncio.get_event_loop()
 
         video = await loop.run_in_executor(

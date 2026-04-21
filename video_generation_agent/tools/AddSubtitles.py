@@ -7,6 +7,7 @@ from typing import Optional, Literal
 from pydantic import Field, field_validator
 
 from agency_swarm import BaseTool
+from shared_tools.openai_client_utils import get_openai_client
 from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
@@ -93,10 +94,7 @@ class AddSubtitles(BaseTool):
         video = VideoFileClip(video_path)
         video_width, video_height = video.size
 
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise RuntimeError("OPENAI_API_KEY environment variable is required for subtitles")
-        client = OpenAI(api_key=api_key)
+        client = get_openai_client(tool=self)
 
         prompt = (
             "Transcribe the audio of the video into text, make sure to include correct periods and capitalization. "

@@ -7,6 +7,7 @@ from openai import OpenAI
 from pydantic import Field, field_validator, model_validator
 
 from agency_swarm import BaseTool
+from shared_tools.openai_client_utils import get_openai_client
 
 from .utils.image_io import (
     get_images_dir,
@@ -135,10 +136,6 @@ class EditImages(BaseTool):
         return results, usage_metadata
 
     def _run_openai(self, images_dir, input_image):
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise RuntimeError("OPENAI_API_KEY is required for OpenAI image editing.")
-
         size = get_openai_size_for_aspect_ratio(self.aspect_ratio)
 
         from io import BytesIO
@@ -149,7 +146,7 @@ class EditImages(BaseTool):
         buffer.name = "input.png"
 
         try:
-            client = OpenAI(api_key=api_key)
+            client = get_openai_client(tool=self)
             response = client.images.edit(
                 model=self.model,
                 image=buffer,
