@@ -13,8 +13,10 @@ from pathlib import Path
 from typing import Literal
 
 import os
+from dotenv import load_dotenv
 from agency_swarm import Agent, ModelSettings, Reasoning
 from agency_swarm.tools import BaseTool
+from openai import AsyncOpenAI
 from agents.extensions.models.litellm_model import LitellmModel
 from pydantic import BaseModel, Field, ValidationError
 
@@ -30,7 +32,7 @@ from .template_registry import load_template_index
 
 
 _PLANNER_MODEL_CLAUDE = "anthropic/claude-sonnet-4-6"
-_PLANNER_MODEL_OAI = "gpt-5.2-codex"
+_PLANNER_MODEL_OAI = "gpt-5.3-codex"
 
 
 class _PlanSlide(BaseModel):
@@ -47,19 +49,107 @@ class _PlanResponse(BaseModel):
     slides: list[_PlanSlide]
 
 
-def _make_planner_agent(caller_model=None) -> Agent:
+def _get_caller_openai_client(tool) -> "AsyncOpenAI | None":
+    ctx = getattr(tool, "_context", None)
+    master = getattr(ctx, "context", None)
+    agent_name = getattr(master, "current_agent_name", None)
+    agents = getattr(master, "agents", {})
+    agent = agents.get(agent_name) if agent_name else None
+    model = getattr(agent, "model", None)
+    for attr in ("_client", "openai_client", "client"):
+        maybe = getattr(model, attr, None)
+        if isinstance(maybe, AsyncOpenAI):
+            return maybe
+    return None
+
+
+class _CodexResponsesModel:
+    """Subclass of OpenAIResponsesModel that strips parameters unsupported by the Codex endpoint."""
+
+    _cls = None
+
+    @classmethod
+    def _get_cls(cls):
+        if cls._cls is None:
+            from agents import OpenAIResponsesModel
+            from dataclasses import replace
+
+            class _Impl(OpenAIResponsesModel):
+                async def _fetch_response(self, system_instructions, input, model_settings, *args, **kwargs):
+                    model_settings = replace(model_settings, truncation=None)
+                    return await super()._fetch_response(system_instructions, input, model_settings, *args, **kwargs)
+
+            cls._cls = _Impl
+        return cls._cls
+
+    def __new__(cls, model: str, openai_client):
+        return cls._get_cls()(model=model, openai_client=openai_client)
+
+
+async def _agent_get_response(agent: Agent, prompt: str, *, use_stream: bool = False):
+    """Call agent.get_response or stream-based equivalent.
+
+    Codex endpoint requires stream=True; use get_response_stream() in that case.
+    """
+    if use_stream:
+        stream = agent.get_response_stream(prompt)
+        text_deltas: list[str] = []
+        async for event in stream:
+            data = getattr(event, "data", None)
+            if data is not None:
+                delta = getattr(data, "delta", None)
+                if delta and isinstance(delta, str):
+                    text_deltas.append(delta)
+        result = await stream.wait_final_result()
+        fo = getattr(result, "final_output", None) if result is not None else None
+        if not fo and text_deltas:
+            assembled = "".join(text_deltas)
+            try:
+                if result is not None:
+                    result.final_output = assembled
+                else:
+                    class _R:
+                        final_output = assembled
+                    result = _R()
+            except Exception:
+                pass
+        return result
+    return await agent.get_response(prompt)
+
+
+def _make_planner_agent(tool=None) -> "tuple[Agent, bool]":
     """Create a fresh, stateless agent instance for one InsertNewSlides call.
 
     Model priority:
     1. ANTHROPIC_API_KEY in env → Claude Sonnet 4.6 (best planning quality)
-    2. caller_model → inherit from the calling agent (covers /auth TUI flow)
+    2. Calling agent's OpenAI client (browser auth / per-request ClientConfig)
+    3. AsyncOpenAI() default (env vars)
+
+    Returns (agent, is_codex).
     """
     anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+    is_codex = False
     if anthropic_key:
         model = LitellmModel(model=_PLANNER_MODEL_CLAUDE, api_key=anthropic_key)
     else:
-        model = caller_model or _PLANNER_MODEL_OAI
-    return Agent(
+        from agents import OpenAIResponsesModel
+        from openai import AsyncOpenAI
+        caller_client = tool and _get_caller_openai_client(tool)
+        if caller_client:
+            # Create a fresh client with the same credentials — the caller's client is
+            # bound to FastAPI's event loop and cannot be reused in asyncio.run() threads.
+            client = AsyncOpenAI(
+                api_key=caller_client.api_key,
+                base_url=str(caller_client.base_url),
+            )
+        else:
+            client = AsyncOpenAI()
+        is_codex = bool(caller_client and not str(caller_client.base_url).startswith("https://api.openai.com"))
+        if is_codex:
+            model = _CodexResponsesModel(model=_PLANNER_MODEL_OAI, openai_client=client)
+        else:
+            model = OpenAIResponsesModel(model=_PLANNER_MODEL_OAI, openai_client=client)
+    agent = Agent(
         name="Slide Planner",
         description="Creates structured slide outline plans.",
         instructions=(
@@ -70,9 +160,11 @@ def _make_planner_agent(caller_model=None) -> Agent:
         model=model,
         model_settings=ModelSettings(
             reasoning=Reasoning(effort="high", summary="auto"),
-            verbosity="medium",
+            verbosity=None if is_codex else "medium",
+            store=False if is_codex else None,
         ),
     )
+    return agent, is_codex
 
 
 def _run_awaitable(awaitable):
@@ -83,7 +175,9 @@ def _run_awaitable(awaitable):
         try:
             box["result"] = asyncio.run(awaitable)
         except BaseException as exc:  # noqa: BLE001
+            import traceback
             err["error"] = exc
+            err["tb"] = traceback.format_exc()
 
     thread = threading.Thread(
         target=_worker,
@@ -95,7 +189,7 @@ def _run_awaitable(awaitable):
     if thread.is_alive():
         raise TimeoutError("InsertNewSlides planner timed out after 180s")
     if "error" in err:
-        raise err["error"]
+        raise RuntimeError(f"{err['error']}\n{err.get('tb', '')}") from err["error"]
     return box.get("result")
 
 
@@ -281,6 +375,7 @@ class InsertNewSlides(BaseTool):
 
     def run(self):
         """Insert blank placeholders and return a planning-oriented response."""
+        load_dotenv(override=True)
         project_dir = get_project_dir(self.project_name)
         project_dir.mkdir(parents=True, exist_ok=True)
 
@@ -300,11 +395,16 @@ class InsertNewSlides(BaseTool):
                 rename_map[s.path] = project_dir / new_name
         apply_renames(rename_map)
 
-        planner = _make_planner_agent(caller_model=getattr(self._caller_agent, "model", None))
-        prompt = _build_planner_prompt(
-            self.task_brief, n, insert_position, existing_templates
-        )
-        plan_result = _run_awaitable(planner.get_response(prompt))
+        try:
+            planner, is_codex = _make_planner_agent(tool=self)
+            prompt = _build_planner_prompt(
+                self.task_brief, n, insert_position, existing_templates
+            )
+            plan_result = _run_awaitable(
+                _agent_get_response(planner, prompt, use_stream=is_codex)
+            )
+        except Exception as exc:
+            return f"❌ Outline generation failed: {exc}"
         plan_text = _extract_json_block(
             str(getattr(plan_result, "final_output", "") or "")
         )
@@ -313,9 +413,7 @@ class InsertNewSlides(BaseTool):
         try:
             plan_obj = _PlanResponse.model_validate(json.loads(plan_text))
         except (json.JSONDecodeError, ValidationError) as exc:
-            return (
-                f"❌ Outline generation failed: planner returned invalid JSON ({exc})."
-            )
+            return f"❌ Outline generation failed: planner returned invalid JSON ({exc})."
 
         # Write blank slide placeholders (no content generation here)
         created: list[str] = []

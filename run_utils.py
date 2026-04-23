@@ -11,10 +11,10 @@ def _resolve_bin_name() -> str:
     machine = platform.machine().lower()
     arch = "arm64" if machine in ("arm64", "aarch64") else "x64"
     if sys.platform == "win32":
-        return f"agency-windows-{arch}.exe"
+        return f"agentswarm-windows-{arch}.exe"
     if sys.platform == "darwin":
-        return f"agency-darwin-{arch}"
-    return f"agency-linux-{arch}"
+        return f"agentswarm-darwin-{arch}"
+    return f"agentswarm-linux-{arch}"
 
 
 # ── Bootstrap: create venv + install deps automatically on first run ─────────
@@ -34,7 +34,10 @@ def _bootstrap() -> None:
         print("Installing dependencies, please wait…\n")
         if not shutil.which("uv"):
             subprocess.check_call([sys.executable, "-m", "pip", "install", "uv"])
-        subprocess.check_call(["uv", "pip", "install", "--system", "--python", sys.executable, str(_repo)])
+        uv_cmd = ["uv", "pip", "install", "--system", "--python", sys.executable, str(_repo)]
+        if sys.platform != "win32":
+            uv_cmd.append("--break-system-packages")
+        subprocess.check_call(uv_cmd)
         print("\nDone.\n")
 
     # Ensure the Playwright browser binary for the installed playwright version

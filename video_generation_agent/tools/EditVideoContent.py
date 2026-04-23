@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 import re
+from dotenv import load_dotenv
 import cv2
 import httpx
 from typing import Annotated, Literal, Optional, Union
@@ -162,6 +163,7 @@ class EditVideoContent(BaseTool):
         return _ensure_not_blank(value, "name")
 
     async def run(self) -> list:
+        load_dotenv(override=True)
         if self.mode.action == "remix":
             return await self._run_remix(self.mode)
         if self.mode.action == "extend":
@@ -219,7 +221,7 @@ class EditVideoContent(BaseTool):
         return output
 
     async def _run_remix(self, payload: RemixMode) -> list:
-        client = get_openai_client()
+        client = get_openai_client(tool=self)
         loop = asyncio.get_event_loop()
 
         video = await loop.run_in_executor(

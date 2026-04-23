@@ -3,6 +3,7 @@
 import asyncio
 import os
 from typing import Literal
+from dotenv import load_dotenv
 
 from google import genai
 from pydantic import Field, field_validator
@@ -83,6 +84,7 @@ class EditImage(BaseTool):
 
     async def run(self) -> list:
         """Edit an image using the Gemini API."""
+        load_dotenv(override=True)
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
             raise ValueError("GOOGLE_API_KEY is not set. Add it to your .env to use image editing.")

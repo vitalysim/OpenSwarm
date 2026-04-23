@@ -4,6 +4,7 @@ from pydantic import Field
 import json
 
 import os
+from dotenv import load_dotenv
 
 
 class ScholarSearch(BaseTool):
@@ -46,6 +47,7 @@ class ScholarSearch(BaseTool):
     )
     
     def run(self):
+        load_dotenv(override=True)
         try:
             import requests
             

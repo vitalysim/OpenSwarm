@@ -5,6 +5,7 @@ from typing import Literal
 from pathlib import Path
 
 import os
+from dotenv import load_dotenv
 from google import genai
 from PIL import Image
 from pydantic import Field, field_validator
@@ -90,6 +91,7 @@ class CombineImages(BaseTool):
 
     async def run(self) -> list:
         """Combine images using the Gemini API."""
+        load_dotenv(override=True)
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
             raise ValueError("GOOGLE_API_KEY is not set. Add it to your .env to use image composition.")

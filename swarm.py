@@ -1,6 +1,3 @@
-from run_utils import _bootstrap
-_bootstrap()
-
 import os
 from dotenv import load_dotenv
 from agents import set_tracing_disabled, set_tracing_export_api_key
@@ -78,5 +75,5 @@ def create_agency(load_threads_callback=None):
     return agency
 
 if __name__ == "__main__":
-    from run_utils import main
-    main()
+    agency = create_agency()
+    agency.tui(show_reasoning=True, reload=False)

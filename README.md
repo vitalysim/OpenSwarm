@@ -1,4 +1,10 @@
+<div align="center">
+
 # 🚀 OpenSwarm
+
+![OpenSwarm](assets/new-framework.jpg)
+
+</div>
 
 **The fully open-source multi-agent system that does everything Claude Code can't.**
 

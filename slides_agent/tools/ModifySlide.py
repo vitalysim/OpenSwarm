@@ -11,6 +11,7 @@ import base64
 import mimetypes
 import os
 import re
+from dotenv import load_dotenv
 import tempfile
 import threading
 from datetime import datetime, timezone
@@ -20,6 +21,7 @@ from typing import Any
 from agency_swarm import Agent, ModelSettings, Reasoning
 from agency_swarm.tools import BaseTool, ToolOutputText, tool_output_image_from_path
 from agents.extensions.models.litellm_model import LitellmModel
+from openai import AsyncOpenAI
 from pydantic import Field
 
 from .slide_file_utils import get_project_dir
@@ -218,23 +220,106 @@ def _embed_local_images_as_base64(html: str, project_dir: Path) -> str:
 
 
 _HTML_WRITER_MODEL_CLAUDE = "anthropic/claude-sonnet-4-6"
-_HTML_WRITER_MODEL_OAI = "gpt-5.2-codex"
+_HTML_WRITER_MODEL_OAI = "gpt-5.3-codex"
 _HTML_WRITER_MAX_ATTEMPTS = 3
 
 
-def _make_html_writer_agent(caller_model=None) -> Agent:
+def _get_caller_openai_client(tool) -> "AsyncOpenAI | None":
+    ctx = getattr(tool, "_context", None)
+    master = getattr(ctx, "context", None)
+    agent_name = getattr(master, "current_agent_name", None)
+    agents = getattr(master, "agents", {})
+    agent = agents.get(agent_name) if agent_name else None
+    model = getattr(agent, "model", None)
+    for attr in ("_client", "openai_client", "client"):
+        maybe = getattr(model, attr, None)
+        if isinstance(maybe, AsyncOpenAI):
+            return maybe
+    return None
+
+
+class _CodexResponsesModel:
+    """Subclass of OpenAIResponsesModel that strips parameters unsupported by the Codex endpoint."""
+
+    _cls = None
+
+    @classmethod
+    def _get_cls(cls):
+        if cls._cls is None:
+            from agents import OpenAIResponsesModel
+            from dataclasses import replace
+
+            class _Impl(OpenAIResponsesModel):
+                async def _fetch_response(self, system_instructions, input, model_settings, *args, **kwargs):
+                    model_settings = replace(model_settings, truncation=None)
+                    return await super()._fetch_response(system_instructions, input, model_settings, *args, **kwargs)
+
+            cls._cls = _Impl
+        return cls._cls
+
+    def __new__(cls, model: str, openai_client):
+        return cls._get_cls()(model=model, openai_client=openai_client)
+
+
+async def _agent_get_response(agent: Agent, prompt: str, *, use_stream: bool = False):
+    """Call agent.get_response or stream-based equivalent.
+
+    Codex endpoint requires stream=True; use get_response_stream() in that case.
+    """
+    if use_stream:
+        stream = agent.get_response_stream(prompt)
+        text_deltas: list[str] = []
+        async for event in stream:
+            data = getattr(event, "data", None)
+            if data is not None:
+                delta = getattr(data, "delta", None)
+                if delta and isinstance(delta, str):
+                    text_deltas.append(delta)
+        result = await stream.wait_final_result()
+        fo = getattr(result, "final_output", None) if result is not None else None
+        if not fo and text_deltas:
+            assembled = "".join(text_deltas)
+            try:
+                if result is not None:
+                    result.final_output = assembled
+                else:
+                    class _R:
+                        final_output = assembled
+                    result = _R()
+            except Exception:
+                pass
+        return result
+    return await agent.get_response(prompt)
+
+
+def _make_html_writer_agent(tool=None) -> "tuple[Agent, bool]":
     """Create a fresh, stateless agent instance for one ModifySlide call.
 
     Model priority:
     1. ANTHROPIC_API_KEY in env → Claude Sonnet 4.6 (best HTML quality)
-    2. caller_model → inherit from the calling agent (covers /auth TUI flow)
+    2. Calling agent's OpenAI client (browser auth / per-request ClientConfig)
+    3. AsyncOpenAI() default (env vars)
+
+    Returns (agent, is_codex).
     """
     anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+    is_codex = False
     if anthropic_key:
         model = LitellmModel(model=_HTML_WRITER_MODEL_CLAUDE, api_key=anthropic_key)
     else:
-        model = caller_model or _HTML_WRITER_MODEL_OAI
-    return Agent(
+        from agents import OpenAIResponsesModel
+        from openai import AsyncOpenAI
+        caller_client = tool and _get_caller_openai_client(tool)
+        client = AsyncOpenAI(
+            api_key=caller_client.api_key,
+            base_url=str(caller_client.base_url),
+        ) if caller_client else AsyncOpenAI()
+        is_codex = bool(caller_client and not str(caller_client.base_url).startswith("https://api.openai.com"))
+        if is_codex:
+            model = _CodexResponsesModel(model=_HTML_WRITER_MODEL_OAI, openai_client=client)
+        else:
+            model = OpenAIResponsesModel(model=_HTML_WRITER_MODEL_OAI, openai_client=client)
+    agent = Agent(
         name="Slide HTML Writer",
         description="Generates complete slide HTML from task briefs.",
         instructions=_read_html_writer_instructions(),
@@ -243,8 +328,10 @@ def _make_html_writer_agent(caller_model=None) -> Agent:
         model_settings=ModelSettings(
             reasoning=Reasoning(effort="high", summary="auto"),
             verbosity="medium",
+            store=False if is_codex else None,
         ),
     )
+    return agent, is_codex
 
 
 def _extract_html_from_output(text: str) -> str:
@@ -447,6 +534,7 @@ class ModifySlide(BaseTool):
     save_as_template_name: str | None = Field(default=None, description="Optional display name for saved template")
 
     async def run(self):
+        load_dotenv(override=True)
         project_dir = get_project_dir(self.project_name)
         if not project_dir.exists():
             return f"Project not found: {project_dir}"
@@ -476,7 +564,7 @@ class ModifySlide(BaseTool):
         theme_css = _read_theme_css(project_dir)
         main_text_contents = _build_main_text_contents(project_dir, slide_filename)
 
-        writer = _make_html_writer_agent(caller_model=getattr(self._caller_agent, "model", None))
+        writer, is_codex = _make_html_writer_agent(tool=self)
 
         sub_results: list[Any] = []
         last_validation_error = ""
@@ -498,9 +586,10 @@ class ModifySlide(BaseTool):
             )
 
             try:
-                final_result = await writer.get_response(prompt)
+                final_result = await _agent_get_response(writer, prompt, use_stream=is_codex)
             except Exception as exc:
-                last_validation_error = f"Sub-agent error (attempt {attempt}): {exc}"
+                import traceback
+                last_validation_error = f"Sub-agent error (attempt {attempt}): {exc}\n{traceback.format_exc()}"
                 continue
             sub_results.append(final_result)
 

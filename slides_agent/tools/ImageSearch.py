@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 import os
+from dotenv import load_dotenv
 from agency_swarm.tools import BaseTool
 from pydantic import Field
 
@@ -31,6 +32,7 @@ class ImageSearch(BaseTool):
     )
 
     def run(self) -> str:
+        load_dotenv(override=True)
         providers = [p.lower() for p in (self.providers or ["unsplash", "pexels", "pixabay"])]
         results = []
         warnings = []

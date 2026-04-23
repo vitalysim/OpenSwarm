@@ -3,10 +3,12 @@
 from typing import Literal
 
 import os
+from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import Field, field_validator, model_validator
 
 from agency_swarm import BaseTool
+from shared_tools.openai_client_utils import get_openai_client
 
 from .utils.image_io import (
     get_images_dir,
@@ -74,6 +76,7 @@ class EditImages(BaseTool):
         return self
 
     def run(self) -> list:
+        load_dotenv(override=True)
         images_dir = get_images_dir(self.product_name)
         input_image, source = resolve_image_reference(self.product_name, self.input_image_ref)
 
@@ -135,10 +138,6 @@ class EditImages(BaseTool):
         return results, usage_metadata
 
     def _run_openai(self, images_dir, input_image):
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise RuntimeError("OPENAI_API_KEY is required for OpenAI image editing.")
-
         size = get_openai_size_for_aspect_ratio(self.aspect_ratio)
 
         from io import BytesIO
@@ -149,7 +148,13 @@ class EditImages(BaseTool):
         buffer.name = "input.png"
 
         try:
-            client = OpenAI(api_key=api_key)
+            client = get_openai_client(tool=self)
+            if not str(client.base_url).startswith("https://api.openai.com"):
+                raise ValueError(
+                    "User has used browser authentication and is authenticated through Codex. "
+                    "Image editing is not yet supported with Codex api. "
+                    "Please ask user to use /auth again to add add-ons or switch to API key authentication."
+                )
             response = client.images.edit(
                 model=self.model,
                 image=buffer,

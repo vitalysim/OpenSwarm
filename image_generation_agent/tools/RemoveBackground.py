@@ -3,6 +3,7 @@
 import io
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 from urllib.parse import urlparse
 
 import fal_client
@@ -50,6 +51,7 @@ class RemoveBackground(BaseTool):
         return value
 
     def run(self) -> list:
+        load_dotenv(override=True)
         api_key = os.getenv("FAL_KEY")
         if not api_key:
             raise ValueError("FAL_KEY is not set. Add it to your .env to use background removal.")

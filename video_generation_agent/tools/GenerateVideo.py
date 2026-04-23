@@ -5,6 +5,7 @@ import asyncio
 import logging
 import os
 import re
+from dotenv import load_dotenv
 import mimetypes
 from pathlib import Path
 from urllib.parse import urlparse
@@ -18,6 +19,7 @@ from PIL import Image as PILImage
 from io import BytesIO
 
 from agency_swarm import BaseTool, ToolOutputText
+from shared_tools.openai_client_utils import get_openai_client
 
 from .utils.video_utils import (
     ensure_not_blank,
@@ -165,6 +167,7 @@ class GenerateVideo(BaseTool):
 
     async def run(self) -> list:
         """Generate a marketing video using the chosen model."""
+        load_dotenv(override=True)
         if is_seedance_model(self.model):
             return await self._generate_with_seedance(self.model)
 
@@ -179,13 +182,13 @@ class GenerateVideo(BaseTool):
     async def _generate_with_sora(self, model: str) -> dict:
         """Generate video using OpenAI's Sora API."""
 
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise RuntimeError(
-                "OPENAI_API_KEY environment variable is required for video operations"
+        client = get_openai_client(tool=self)
+        if not str(client.base_url).startswith("https://api.openai.com"):
+            raise ValueError(
+                "User has used browser authentication and is authenticated through Codex. "
+                "Video generation is not yet supported with Codex api. "
+                "Please ask user to use /auth again to add add-ons or switch to API key authentication."
             )
-
-        client: OpenAI = OpenAI(api_key=api_key)
         reference_file = None
         
         try:

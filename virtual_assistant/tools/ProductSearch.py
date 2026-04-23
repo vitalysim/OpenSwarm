@@ -4,6 +4,7 @@ from pydantic import Field
 import json
 
 import os
+from dotenv import load_dotenv
 
 
 class ProductSearch(BaseTool):
@@ -71,6 +72,7 @@ class ProductSearch(BaseTool):
     )
     
     def run(self):
+        load_dotenv(override=True)
         try:
             import requests
             
