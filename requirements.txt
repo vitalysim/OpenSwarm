@@ -1,4 +1,4 @@
-agency-swarm[fastapi,jupyter,litellm] @ git+https://github.com/VRSEN/agency-swarm.git@main
+agency-swarm[fastapi,jupyter,litellm]>1.9.7
 questionary>=2.0.0
 fastapi
 uvicorn
