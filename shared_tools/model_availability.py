@@ -3,8 +3,17 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 from shared_tools.openai_client_utils import get_caller_openai_credentials
+
+
+def _refresh_runtime_env() -> None:
+    """Reload add-on keys written through the TUI into the running process."""
+    load_dotenv(dotenv_path=Path.cwd() / ".env", override=True)
+    load_dotenv(override=True)
 
 
 def _configured(value: bool) -> str:
@@ -17,6 +26,7 @@ def direct_openai_available(tool=None) -> bool:
     Browser/Codex auth supplies an OpenAI-compatible client, but media endpoints
     such as Images and Videos are not supported through that base URL.
     """
+    _refresh_runtime_env()
     creds = get_caller_openai_credentials(tool) if tool is not None else None
     if creds:
         return creds[1].startswith("https://api.openai.com")
@@ -24,10 +34,12 @@ def direct_openai_available(tool=None) -> bool:
 
 
 def google_available() -> bool:
+    _refresh_runtime_env()
     return bool(os.getenv("GOOGLE_API_KEY"))
 
 
 def fal_available() -> bool:
+    _refresh_runtime_env()
     return bool(os.getenv("FAL_KEY"))
 
 
