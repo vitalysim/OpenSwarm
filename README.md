@@ -99,7 +99,7 @@ The setup wizard walks you through everything, but you'll need at least one of t
 
 **Required (choose one):**
 
-- `OPENAI_API_KEY` - For GPT-4o and Sora video generation
+- `OPENAI_API_KEY` - For GPT 5.5 and Sora video generation
 - `ANTHROPIC_API_KEY` - For Claude models
 
 **Optional superpowers:**
