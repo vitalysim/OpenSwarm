@@ -116,7 +116,11 @@ The coding agent will read this file, understand the structure, and make the rig
 - `instructions.md` is the agent's system prompt — edit it to change behavior
 - Tools live in `tools/` and are auto-loaded by the agent definition
 - `shared_tools/` contains Composio-powered integrations (Gmail, Slack, GitHub, etc.) available to all agents
-- Models are configured via `DEFAULT_MODEL` in `.env` — never hardcoded
+- Models are configured via `DEFAULT_MODEL` and optional per-agent model env vars in `.env` — never hardcoded
+- Local subscription model IDs are supported for reasoning agents:
+  - `subscription/codex` uses the local Codex CLI login
+  - `subscription/claude` uses the local Claude Code login
+- Check model/API/service authentication with `python onboard.py --status`
 
 Before proceeding with agent creation, please read the following instructions carefully:
 

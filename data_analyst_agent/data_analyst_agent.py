@@ -9,10 +9,11 @@ from agency_swarm.tools import (
 )
 from shared_tools import CopyFile, ExecuteTool, FindTools, ManageConnections, SearchTools
 
-from config import get_default_model, is_openai_provider
+from config import get_agent_model, is_openai_provider
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 instructions_path = os.path.join(current_dir, "instructions.md")
+MODEL_ENV_VAR = "DATA_ANALYST_MODEL"
 
 def create_data_analyst() -> Agent:
     return Agent(
@@ -20,7 +21,7 @@ def create_data_analyst() -> Agent:
         description="Advanced data analytics agent that generates charts and provides actionable insights.",
         instructions=instructions_path,
         tools_folder=os.path.join(current_dir, "tools"),
-        model=get_default_model(),
+        model=get_agent_model(MODEL_ENV_VAR),
         tools=[
             WebSearchTool(),
             PersistentShellTool,
@@ -33,9 +34,9 @@ def create_data_analyst() -> Agent:
             SearchTools,
         ],
         model_settings=ModelSettings(
-            reasoning=Reasoning(effort="medium", summary="auto") if is_openai_provider() else None,
+            reasoning=Reasoning(effort="medium", summary="auto") if is_openai_provider(MODEL_ENV_VAR) else None,
             truncation="auto",
-            response_include=["web_search_call.action.sources"] if is_openai_provider() else None,
+            response_include=["web_search_call.action.sources"] if is_openai_provider(MODEL_ENV_VAR) else None,
         ),
         conversation_starters=[
             "Analyze this CSV file and show me the key trends.",

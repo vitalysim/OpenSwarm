@@ -93,21 +93,33 @@ They'll automatically customize all agents for your use case.
 - **Marketing Swarm:** Campaign planning + creative assets + analytics
 - **Product Swarm:** Market research + feature specs + launch materials
 
-## ⚙️ API Keys & Setup
+## ⚙️ Authentication & Setup
 
-The setup wizard walks you through everything, but you'll need at least one of these:
+The setup wizard can use multiple authentication sources at the same time:
 
-**Required (choose one):**
+**Subscription auth for reasoning agents:**
 
-- `OPENAI_API_KEY` - For GPT 5.5 and Sora video generation
-- `ANTHROPIC_API_KEY` - For Claude models
+- `subscription/codex` - Uses your local Codex CLI login (`codex login`)
+- `subscription/claude` - Uses your local Claude Code login (`claude auth login`)
+
+**API keys for direct provider APIs and media tools:**
+
+- `OPENAI_API_KEY` - OpenAI API models, OpenAI Images, and Sora video generation
+- `ANTHROPIC_API_KEY` - Anthropic API models through LiteLLM
+- `GOOGLE_API_KEY` - Gemini model/image generation + Veo video
 
 **Optional superpowers:**
 
 - `COMPOSIO_API_KEY` - Unlock 10,000+ integrations (Gmail, Slack, GitHub, etc.)
-- `GOOGLE_API_KEY` - Gemini image generation + Veo video
 - `FAL_KEY` - Advanced video editing and effects
 - `SEARCH_API_KEY` - Web search for research agent
+- `PEXELS_API_KEY`, `PIXABAY_API_KEY`, `UNSPLASH_ACCESS_KEY` - stock image search
+
+Check everything with:
+
+```bash
+python onboard.py --status
+```
 
 Tools gracefully degrade when keys are missing — you'll get clear instructions on what to add.
 

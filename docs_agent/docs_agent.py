@@ -6,9 +6,10 @@ from agency_swarm.tools import IPythonInterpreter, WebSearchTool
 from openai.types.shared import Reasoning
 from shared_tools import CopyFile
 
-from config import get_default_model, is_openai_provider
+from config import get_agent_model, is_openai_provider
 
 _INSTRUCTIONS_PATH = Path(__file__).parent / "instructions.md"
+MODEL_ENV_VAR = "DOCS_AGENT_MODEL"
 
 
 def _list_existing_projects() -> str:
@@ -38,10 +39,10 @@ def create_docs_agent() -> Agent:
         instructions=_build_instructions(),
         files_folder="./files",
         tools_folder="./tools",
-        model=get_default_model(),
+        model=get_agent_model(MODEL_ENV_VAR),
         model_settings=ModelSettings(
-            reasoning=Reasoning(effort="medium", summary="auto") if is_openai_provider() else None,
-            response_include=["web_search_call.action.sources"] if is_openai_provider() else None,
+            reasoning=Reasoning(effort="medium", summary="auto") if is_openai_provider(MODEL_ENV_VAR) else None,
+            response_include=["web_search_call.action.sources"] if is_openai_provider(MODEL_ENV_VAR) else None,
         ),
         tools=[WebSearchTool(), IPythonInterpreter, CopyFile],
         conversation_starters=[

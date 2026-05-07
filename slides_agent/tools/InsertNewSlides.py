@@ -20,6 +20,8 @@ from openai import AsyncOpenAI
 from agents.extensions.models.litellm_model import LitellmModel
 from pydantic import BaseModel, Field, ValidationError
 
+from config import get_agent_model, get_configured_model_value
+
 from .slide_file_utils import (
     apply_renames,
     build_slide_name,
@@ -127,28 +129,34 @@ def _make_planner_agent(tool=None) -> "tuple[Agent, bool]":
 
     Returns (agent, is_codex).
     """
-    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+    configured_model = get_configured_model_value("SLIDES_AGENT_MODEL", fallback="")
     is_codex = False
-    if anthropic_key:
-        model = LitellmModel(model=_PLANNER_MODEL_CLAUDE, api_key=anthropic_key)
+    if configured_model.startswith("subscription/"):
+        model = get_agent_model("SLIDES_AGENT_MODEL")
+    elif configured_model.startswith("litellm/") or configured_model.startswith("anthropic/"):
+        model = get_agent_model("SLIDES_AGENT_MODEL")
     else:
-        from agents import OpenAIResponsesModel
-        from openai import AsyncOpenAI
-        caller_client = tool and _get_caller_openai_client(tool)
-        if caller_client:
-            # Create a fresh client with the same credentials — the caller's client is
-            # bound to FastAPI's event loop and cannot be reused in asyncio.run() threads.
-            client = AsyncOpenAI(
-                api_key=caller_client.api_key,
-                base_url=str(caller_client.base_url),
-            )
+        anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+        if anthropic_key:
+            model = LitellmModel(model=_PLANNER_MODEL_CLAUDE, api_key=anthropic_key)
         else:
-            client = AsyncOpenAI()
-        is_codex = bool(caller_client and not str(caller_client.base_url).startswith("https://api.openai.com"))
-        if is_codex:
-            model = _CodexResponsesModel(model=_PLANNER_MODEL_OAI, openai_client=client)
-        else:
-            model = OpenAIResponsesModel(model=_PLANNER_MODEL_OAI, openai_client=client)
+            from agents import OpenAIResponsesModel
+            from openai import AsyncOpenAI
+            caller_client = tool and _get_caller_openai_client(tool)
+            if caller_client:
+                # Create a fresh client with the same credentials — the caller's client is
+                # bound to FastAPI's event loop and cannot be reused in asyncio.run() threads.
+                client = AsyncOpenAI(
+                    api_key=caller_client.api_key,
+                    base_url=str(caller_client.base_url),
+                )
+            else:
+                client = AsyncOpenAI()
+            is_codex = bool(caller_client and not str(caller_client.base_url).startswith("https://api.openai.com"))
+            if is_codex:
+                model = _CodexResponsesModel(model=_PLANNER_MODEL_OAI, openai_client=client)
+            else:
+                model = OpenAIResponsesModel(model=_PLANNER_MODEL_OAI, openai_client=client)
     agent = Agent(
         name="Slide Planner",
         description="Creates structured slide outline plans.",

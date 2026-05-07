@@ -24,6 +24,8 @@ from agents.extensions.models.litellm_model import LitellmModel
 from openai import AsyncOpenAI
 from pydantic import Field
 
+from config import get_agent_model, get_configured_model_value
+
 from .slide_file_utils import get_project_dir
 from .slide_html_utils import (
     ensure_full_html,
@@ -302,23 +304,29 @@ def _make_html_writer_agent(tool=None) -> "tuple[Agent, bool]":
 
     Returns (agent, is_codex).
     """
-    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+    configured_model = get_configured_model_value("SLIDES_AGENT_MODEL", fallback="")
     is_codex = False
-    if anthropic_key:
-        model = LitellmModel(model=_HTML_WRITER_MODEL_CLAUDE, api_key=anthropic_key)
+    if configured_model.startswith("subscription/"):
+        model = get_agent_model("SLIDES_AGENT_MODEL")
+    elif configured_model.startswith("litellm/") or configured_model.startswith("anthropic/"):
+        model = get_agent_model("SLIDES_AGENT_MODEL")
     else:
-        from agents import OpenAIResponsesModel
-        from openai import AsyncOpenAI
-        caller_client = tool and _get_caller_openai_client(tool)
-        client = AsyncOpenAI(
-            api_key=caller_client.api_key,
-            base_url=str(caller_client.base_url),
-        ) if caller_client else AsyncOpenAI()
-        is_codex = bool(caller_client and not str(caller_client.base_url).startswith("https://api.openai.com"))
-        if is_codex:
-            model = _CodexResponsesModel(model=_HTML_WRITER_MODEL_OAI, openai_client=client)
+        anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+        if anthropic_key:
+            model = LitellmModel(model=_HTML_WRITER_MODEL_CLAUDE, api_key=anthropic_key)
         else:
-            model = OpenAIResponsesModel(model=_HTML_WRITER_MODEL_OAI, openai_client=client)
+            from agents import OpenAIResponsesModel
+            from openai import AsyncOpenAI
+            caller_client = tool and _get_caller_openai_client(tool)
+            client = AsyncOpenAI(
+                api_key=caller_client.api_key,
+                base_url=str(caller_client.base_url),
+            ) if caller_client else AsyncOpenAI()
+            is_codex = bool(caller_client and not str(caller_client.base_url).startswith("https://api.openai.com"))
+            if is_codex:
+                model = _CodexResponsesModel(model=_HTML_WRITER_MODEL_OAI, openai_client=client)
+            else:
+                model = OpenAIResponsesModel(model=_HTML_WRITER_MODEL_OAI, openai_client=client)
     agent = Agent(
         name="Slide HTML Writer",
         description="Generates complete slide HTML from task briefs.",

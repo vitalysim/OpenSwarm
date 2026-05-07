@@ -157,27 +157,10 @@ def _bootstrap() -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-_OPTIONAL_INTEGRATIONS = [
-    ("Composio (10,000+ external integrations)", ["COMPOSIO_API_KEY", "COMPOSIO_USER_ID"]),
-    ("Anthropic / Claude models", ["ANTHROPIC_API_KEY"]),
-    ("Search", ["SEARCH_API_KEY"]),
-    ("Fal.ai (video & audio generation)", ["FAL_KEY"]),
-    ("Google AI / Gemini", ["GOOGLE_API_KEY"]),
-    ("Pexels (stock images)", ["PEXELS_API_KEY"]),
-    ("Pixabay (stock images)", ["PIXABAY_API_KEY"]),
-    ("Unsplash (stock images)", ["UNSPLASH_ACCESS_KEY"]),
-]
-
-
 def build_integration_summary() -> str:
-    lines = ["Optional integrations:"]
-    for name, keys in _OPTIONAL_INTEGRATIONS:
-        active = [k for k in keys if os.getenv(k)]
-        if active:
-            lines.append(f"  ✓  {name}")
-        else:
-            lines.append(f"  ✗  {name}  (missing: {', '.join(keys)})")
-    return "\n".join(lines)
+    from auth_registry import build_status_summary
+
+    return build_status_summary(live=True)
 
 
 def _configure_demo_console() -> None:

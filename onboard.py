@@ -5,6 +5,7 @@ Run directly:   python onboard.py
 Auto-launched:  python run.py  (when no provider key is found)
 """
 
+import argparse
 import getpass
 import sys
 from pathlib import Path
@@ -28,6 +29,8 @@ try:
 except ImportError:
     _HAS_QUESTIONARY = False
 
+from auth_registry import AUTH_DEFINITIONS, CATEGORY_LABELS, get_auth_statuses, list_definitions
+
 console = Console()
 
 ENV_PATH = Path(__file__).parent / ".env"
@@ -50,94 +53,44 @@ if _HAS_QUESTIONARY:
 # ── provider definitions ──────────────────────────────────────────────────────
 PROVIDERS = [
     {
-        "name":         "OpenAI",
-        "env_key":      "OPENAI_API_KEY",
-        "default_model": "gpt-5.2",
-        "url":          "https://platform.openai.com/api-keys",
-    },
-    {
-        "name":         "Anthropic",
-        "env_key":      "ANTHROPIC_API_KEY",
-        "default_model": "litellm/claude-sonnet-4-6",
-        "url":          "https://console.anthropic.com/settings/keys",
-    },
-    {
-        "name":         "Google Gemini",
-        "env_key":      "GOOGLE_API_KEY",
-        "default_model": "litellm/gemini/gemini-3-flash",
-        "url":          "https://aistudio.google.com/app/apikey",
-    },
+        "name": item.name,
+        "env_key": item.env_keys[0],
+        "default_model": item.default_model,
+        "url": item.setup_url,
+    }
+    for item in list_definitions("model_api")
+    if item.env_keys and item.default_model and item.setup_url
 ]
 
-# ── add-on definitions ────────────────────────────────────────────────────────
-# exclude_for: list of provider names that already cover this key
-ADD_ONS = [
-    {
-        "id":          "search",
-        "name":        "Web Search",
-        "description": "Web, Scholar & product search for all agents",
-        "keys": [
-            {"env": "SEARCH_API_KEY", "label": "SearchAPI key",
-             "url": "https://www.searchapi.io"},
-        ],
-        "exclude_for": [],
-    },
-    {
-        "id":          "anthropic",
-        "name":        "Anthropic Claude  —  better slides quality",
-        "description": "Claude produces significantly better slide HTML output",
-        "keys": [
-            {"env": "ANTHROPIC_API_KEY", "label": "Anthropic API key",
-             "url": "https://console.anthropic.com/settings/keys"},
-        ],
-        "exclude_for": ["Anthropic"],
-    },
-    {
-        "id":          "composio",
-        "name":        "Composio  —  10,000+ integrations",
-        "description": "Gmail, Slack, GitHub, HubSpot, Google Calendar and more",
-        "keys": [
-            {"env": "COMPOSIO_API_KEY", "label": "Composio API key",
-             "url": "https://composio.dev"},
-            {"env": "COMPOSIO_USER_ID", "label": "Composio user ID",
-             "url": "https://composio.dev"},
-        ],
-        "exclude_for": [],
-    },
-    {
-        "id":          "google",
-        "name":        "Google Gemini  —  image gen & Veo video",
-        "description": "Gemini image generation/editing and Veo video generation",
-        "keys": [
-            {"env": "GOOGLE_API_KEY", "label": "Google AI API key",
-             "url": "https://aistudio.google.com/app/apikey"},
-        ],
-        "exclude_for": ["Google Gemini"],
-    },
-    {
-        "id":          "fal",
-        "name":        "Fal.ai  —  Seedance video & background removal",
-        "description": "Seedance 1.5 Pro video gen, video editing, background removal",
-        "keys": [
-            {"env": "FAL_KEY", "label": "Fal.ai API key",
-             "url": "https://fal.ai/dashboard/keys"},
-        ],
-        "exclude_for": [],
-    },
-    {
-        "id":          "stock",
-        "name":        "Stock photos  —  Pexels / Pixabay / Unsplash",
-        "description": "Image search for the Slides Agent",
-        "keys": [
-            {"env": "PEXELS_API_KEY",     "label": "Pexels API key",
-             "url": "https://www.pexels.com/api"},
-            {"env": "PIXABAY_API_KEY",    "label": "Pixabay API key",
-             "url": "https://pixabay.com/api/docs"},
-            {"env": "UNSPLASH_ACCESS_KEY", "label": "Unsplash access key",
-             "url": "https://unsplash.com/developers"},
-        ],
-        "exclude_for": [],
-    },
+AGENT_MODEL_ENV_VARS = [
+    ("Orchestrator", "ORCHESTRATOR_MODEL"),
+    ("General Agent", "GENERAL_AGENT_MODEL"),
+    ("Deep Research Agent", "DEEP_RESEARCH_MODEL"),
+    ("Data Analyst", "DATA_ANALYST_MODEL"),
+    ("Docs Agent", "DOCS_AGENT_MODEL"),
+    ("Slides Agent", "SLIDES_AGENT_MODEL"),
+    ("Image Agent", "IMAGE_AGENT_MODEL"),
+    ("Video Agent", "VIDEO_AGENT_MODEL"),
+]
+
+SUBSCRIPTION_FIRST_MODELS = {
+    "DEFAULT_MODEL": "subscription/codex",
+    "ORCHESTRATOR_MODEL": "subscription/codex",
+    "GENERAL_AGENT_MODEL": "subscription/codex",
+    "DATA_ANALYST_MODEL": "subscription/codex",
+    "DEEP_RESEARCH_MODEL": "subscription/claude",
+    "DOCS_AGENT_MODEL": "subscription/claude",
+    "SLIDES_AGENT_MODEL": "subscription/claude",
+    "IMAGE_AGENT_MODEL": "subscription/claude",
+    "VIDEO_AGENT_MODEL": "subscription/claude",
+}
+
+MODEL_OPTIONS = [
+    ("Codex subscription", "subscription/codex"),
+    ("Claude Code subscription", "subscription/claude"),
+    ("OpenAI API", "gpt-5.2"),
+    ("Anthropic API", "litellm/anthropic/claude-sonnet-4-6"),
+    ("Google Gemini API", "litellm/gemini/gemini-3-flash"),
 ]
 
 # ── ui helpers ────────────────────────────────────────────────────────────────
@@ -205,8 +158,101 @@ def _write_env(updates: dict) -> None:
     if not ENV_PATH.exists():
         ENV_PATH.write_text("", encoding="utf-8")
     for key, value in updates.items():
-        if value:
-            set_key(str(ENV_PATH), key, value)
+        set_key(str(ENV_PATH), key, value or "")
+
+
+def _print_status_table(live: bool = True) -> None:
+    statuses = get_auth_statuses(live=live)
+    table = Table(title="Authentication Status", box=box.SIMPLE, padding=(0, 1))
+    table.add_column("Category", style="dim", no_wrap=True)
+    table.add_column("Provider")
+    table.add_column("Status")
+    table.add_column("Details")
+    table.add_column("Capabilities")
+    for status in statuses:
+        table.add_row(
+            CATEGORY_LABELS.get(status.category, status.category),
+            status.name,
+            _status_markup(status.state),
+            status.detail,
+            ", ".join(status.capabilities),
+        )
+    console.print(table)
+
+
+def _status_markup(state: str) -> str:
+    if state == "available":
+        return "[green]available[/green]"
+    if state == "configured":
+        return "[cyan]configured[/cyan]"
+    if state == "missing":
+        return "[yellow]missing[/yellow]"
+    return "[red]error[/red]"
+
+
+def _model_choice(message: str, default_value: str | None = None) -> str:
+    choices = []
+    for title, value in MODEL_OPTIONS:
+        suffix = " (current)" if value == default_value else ""
+        choices.append(Choice(title=f"{title}  [{value}]{suffix}", value=value))
+    return _ask_select(message, choices)
+
+
+def _configure_custom_models(existing: dict) -> dict[str, str]:
+    updates: dict[str, str] = {}
+    current_default = existing.get("DEFAULT_MODEL", "subscription/codex")
+    updates["DEFAULT_MODEL"] = _model_choice("Choose the default model backend:", current_default)
+    for agent_name, env_key in AGENT_MODEL_ENV_VARS:
+        current = existing.get(env_key, updates["DEFAULT_MODEL"])
+        use_default = _ask_confirm(f"  Use DEFAULT_MODEL for {agent_name}?", default=True)
+        if use_default:
+            updates[env_key] = ""
+            continue
+        updates[env_key] = _model_choice(f"Choose model backend for {agent_name}:", current)
+    return updates
+
+
+def _configure_api_primary(existing: dict) -> dict[str, str]:
+    updates: dict[str, str] = {}
+    provider_choices = [Choice(title=p["name"], value=p) for p in PROVIDERS]
+    provider = _ask_select("Choose your primary API provider:", provider_choices)
+    _collect_key(provider["env_key"], f"{provider['name']} API key", provider["url"], existing, updates)
+    updates["DEFAULT_MODEL"] = provider["default_model"]
+    for _, env_key in AGENT_MODEL_ENV_VARS:
+        updates[env_key] = ""
+    return updates
+
+
+def _configure_optional_services(existing: dict, updates: dict[str, str]) -> None:
+    candidates = [item for item in AUTH_DEFINITIONS if item.env_keys]
+    choices = [
+        Choice(
+            title=f"{item.name}  -  {item.description or ', '.join(item.capabilities)}",
+            value=item.id,
+        )
+        for item in candidates
+    ]
+    selected_ids = _ask_checkbox("Select API keys or services to add/update:", choices)
+    selected = [item for item in candidates if item.id in selected_ids]
+    for item in selected:
+        console.print(f"\n  [bold]{item.name}[/bold]")
+        for env_key in item.env_keys:
+            _collect_key(env_key, env_key, item.setup_url or "https://example.com", existing, updates)
+
+
+def _collect_key(env_key: str, label: str, url: str, existing: dict, updates: dict[str, str]) -> None:
+    if updates.get(env_key):
+        console.print(f"  [dim]{env_key} is already configured in this setup.[/dim]")
+        return
+    existing_val = existing.get(env_key, "")
+    if existing_val:
+        console.print(f"  [dim]{env_key} is already configured.[/dim]")
+        if not _ask_confirm("  Update it?", default=False):
+            updates[env_key] = existing_val
+            return
+    val = _ask_secret(label, url)
+    if val:
+        updates[env_key] = val
 
 
 # ── main wizard ───────────────────────────────────────────────────────────────
@@ -223,70 +269,32 @@ def run_onboarding() -> None:
     existing = dotenv_values(str(ENV_PATH)) if ENV_PATH.exists() else {}
     updates: dict[str, str] = {}
 
-    # ── Step 1: provider ──────────────────────────────────────────────────────
-    _step(1, "AI Provider")
+    _step(1, "Current Authentication")
+    _print_status_table(live=True)
 
-    provider_choices = [
-        Choice(title=p["name"], value=p)
-        for p in PROVIDERS
-    ]
-    provider = _ask_select("Choose your primary AI provider:", provider_choices)
-
-    # ── Step 2: API key ───────────────────────────────────────────────────────
-    _step(2, "API Key")
-
-    existing_key = existing.get(provider["env_key"], "")
-    if existing_key:
-        console.print(f"  [dim]{provider['env_key']} is already configured.[/dim]")
-        if _ask_confirm("  Update it?", default=False):
-            key = _ask_secret(f"{provider['name']} API key", provider["url"])
-            updates[provider["env_key"]] = key or existing_key
-        else:
-            updates[provider["env_key"]] = existing_key
-    else:
-        key = _ask_secret(f"{provider['name']} API key", provider["url"])
-        if key:
-            updates[provider["env_key"]] = key
-
-    updates["DEFAULT_MODEL"]       = provider["default_model"]
-
-    # ── Step 3: add-ons ───────────────────────────────────────────────────────
-    _step(3, "Add-ons  [dim](optional)[/dim]")
-
-    available = [a for a in ADD_ONS if provider["name"] not in a["exclude_for"]]
-    addon_choices = [
-        Choice(
-            title=(
-                [
-                    ("class:text",  a["name"]),
-                    ("fg:#555555",  "  ·  "),
-                    ("fg:#666666",  a["description"]),
-                ]
-                if _HAS_QUESTIONARY
-                else f"{a['name']}  —  {a['description']}"
+    _step(2, "Model Routing")
+    preset = _ask_select(
+        "Choose a model routing preset:",
+        [
+            Choice(
+                title="Subscriptions first  -  Codex for coordination/analysis, Claude for content-heavy agents",
+                value="subscriptions",
             ),
-            value=a["id"],
-        )
-        for a in available
-    ]
-    selected_ids = _ask_checkbox("Select add-ons to enable:", addon_choices)
-    selected_addons = [a for a in available if a["id"] in selected_ids]
+            Choice(title="API keys only  -  OpenAI/Anthropic/Gemini API provider", value="api"),
+            Choice(title="Custom  -  choose DEFAULT_MODEL and per-agent overrides", value="custom"),
+        ],
+    )
+    if preset == "subscriptions":
+        updates.update(SUBSCRIPTION_FIRST_MODELS)
+        console.print("[green]Selected subscription-first routing.[/green]")
+        console.print("[dim]Use `codex login` and `claude auth login` if either subscription status is missing.[/dim]")
+    elif preset == "api":
+        updates.update(_configure_api_primary(existing))
+    else:
+        updates.update(_configure_custom_models(existing))
 
-    # ── Step 4: add-on keys ───────────────────────────────────────────────────
-    if selected_addons:
-        _step(4, "Add-on Keys")
-        for addon in selected_addons:
-            console.print(f"\n  [bold]{addon['name'].split('  ')[0]}[/bold]")
-            for key_spec in addon["keys"]:
-                existing_val = existing.get(key_spec["env"], "")
-                if existing_val:
-                    console.print(f"  [dim]{key_spec['env']} is already configured.[/dim]")
-                    if not _ask_confirm("  Update it?", default=False):
-                        updates[key_spec["env"]] = existing_val
-                        continue
-                val = _ask_secret(key_spec["label"], key_spec["url"])
-                if val:
-                    updates[key_spec["env"]] = val
+    _step(3, "API Keys and Services  [dim](optional)[/dim]")
+    _configure_optional_services(existing, updates)
 
     # ── write .env ────────────────────────────────────────────────────────────
     _write_env(updates)
@@ -299,8 +307,7 @@ def run_onboarding() -> None:
     table = Table(box=box.SIMPLE, show_header=False, padding=(0, 2))
     table.add_column(style="dim", no_wrap=True)
     table.add_column()
-    table.add_row("Provider", f"[cyan]{provider['name']}[/cyan]")
-    table.add_row("Model",    f"[cyan]{provider['default_model']}[/cyan]")
+    table.add_row("DEFAULT_MODEL", f"[cyan]{updates.get('DEFAULT_MODEL', existing.get('DEFAULT_MODEL', '(unchanged)'))}[/cyan]")
     table.add_row(".env",     f"[cyan]{ENV_PATH}[/cyan]")
     saved = [k for k, v in updates.items() if v and not k.startswith("DEFAULT_")]
     if saved:
@@ -318,8 +325,14 @@ def run_onboarding() -> None:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="OpenSwarm setup and authentication status.")
+    parser.add_argument("--status", action="store_true", help="Show authentication status and exit.")
+    args = parser.parse_args()
     try:
-        run_onboarding()
+        if args.status:
+            _print_status_table(live=True)
+        else:
+            run_onboarding()
     except KeyboardInterrupt:
         console.print("\n\n[dim]Setup cancelled.[/dim]\n")
         sys.exit(0)

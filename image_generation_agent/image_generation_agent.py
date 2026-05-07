@@ -3,7 +3,10 @@ from agency_swarm.tools import LoadFileAttachment
 from openai.types.shared.reasoning import Reasoning
 from shared_tools import CopyFile
 
-from config import get_default_model, is_openai_provider
+from config import get_agent_model, is_openai_provider
+
+
+MODEL_ENV_VAR = "IMAGE_AGENT_MODEL"
 
 
 def create_image_generation_agent() -> Agent:
@@ -13,9 +16,9 @@ def create_image_generation_agent() -> Agent:
         instructions="instructions.md",
         tools_folder="./tools",
         tools=[LoadFileAttachment, CopyFile],
-        model=get_default_model(),
+        model=get_agent_model(MODEL_ENV_VAR),
         model_settings=ModelSettings(
-            reasoning=Reasoning(summary="auto", effort="medium") if is_openai_provider() else None,
+            reasoning=Reasoning(summary="auto", effort="medium") if is_openai_provider(MODEL_ENV_VAR) else None,
             truncation="auto",
         ),
         conversation_starters=[

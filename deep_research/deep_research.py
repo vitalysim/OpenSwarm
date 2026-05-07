@@ -3,7 +3,10 @@ from agency_swarm.tools import WebSearchTool, IPythonInterpreter
 from openai.types.shared import Reasoning
 from virtual_assistant.tools.ScholarSearch import ScholarSearch
 
-from config import get_default_model, is_openai_provider
+from config import get_agent_model, is_openai_provider
+
+
+MODEL_ENV_VAR = "DEEP_RESEARCH_MODEL"
 
 
 def create_deep_research() -> Agent:
@@ -13,10 +16,10 @@ def create_deep_research() -> Agent:
         instructions="./instructions.md",
         files_folder="./files",
         tools=[WebSearchTool(), ScholarSearch, IPythonInterpreter],
-        model=get_default_model(),
+        model=get_agent_model(MODEL_ENV_VAR),
         model_settings=ModelSettings(
-            reasoning=Reasoning(effort="high", summary="auto") if is_openai_provider() else None,
-            response_include=["web_search_call.action.sources"] if is_openai_provider() else None,
+            reasoning=Reasoning(effort="high", summary="auto") if is_openai_provider(MODEL_ENV_VAR) else None,
+            response_include=["web_search_call.action.sources"] if is_openai_provider(MODEL_ENV_VAR) else None,
         ),
         conversation_starters=[
             "Research the latest trends in renewable energy for 2026.",

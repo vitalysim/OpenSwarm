@@ -6,7 +6,7 @@ from pathlib import Path
 from virtual_assistant.tools.ReadFile import ReadFile
 from shared_tools.CopyFile import CopyFile
 
-from config import get_default_model, is_openai_provider
+from config import get_agent_model, is_openai_provider
 
 # Import slide tools
 from .tools import (
@@ -28,6 +28,7 @@ from .tools import (
 )
 
 _INSTRUCTIONS_PATH = Path(__file__).parent / "instructions.md"
+MODEL_ENV_VAR = "SLIDES_AGENT_MODEL"
 
 
 def _list_existing_projects() -> str:
@@ -88,11 +89,11 @@ def create_slides_agent() -> Agent:
             ReadFile,
             WebSearchTool(search_context_size="high"),
         ],
-        model=get_default_model(),
+        model=get_agent_model(MODEL_ENV_VAR),
         model_settings=ModelSettings(
-            reasoning=Reasoning(effort="high", summary="auto") if is_openai_provider() else None,
-            verbosity="medium" if is_openai_provider() else None,
-            response_include=["web_search_call.action.sources"] if is_openai_provider() else None,
+            reasoning=Reasoning(effort="high", summary="auto") if is_openai_provider(MODEL_ENV_VAR) else None,
+            verbosity="medium" if is_openai_provider(MODEL_ENV_VAR) else None,
+            response_include=["web_search_call.action.sources"] if is_openai_provider(MODEL_ENV_VAR) else None,
         ),
         conversation_starters=[
             "Create a new presentation about the benefits of using AI in the workplace.",

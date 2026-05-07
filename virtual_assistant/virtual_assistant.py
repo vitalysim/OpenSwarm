@@ -7,13 +7,15 @@ from agency_swarm.tools import (
 from openai.types.shared import Reasoning
 from dotenv import load_dotenv
 
-from config import get_default_model, is_openai_provider
+from config import get_agent_model, is_openai_provider
 from shared_tools import CopyFile, ExecuteTool, FindTools, ManageConnections, SearchTools
 
 load_dotenv()
 
 # Class-level rename — idempotent, safe to run once at import time.
 IPythonInterpreter.__name__ = "ProgrammaticToolCalling"
+
+MODEL_ENV_VAR = "GENERAL_AGENT_MODEL"
 
 
 def create_virtual_assistant() -> Agent:
@@ -23,10 +25,10 @@ def create_virtual_assistant() -> Agent:
         instructions="./instructions.md",
         files_folder="./files",
         tools_folder="./tools",
-        model=get_default_model(),
+        model=get_agent_model(MODEL_ENV_VAR),
         model_settings=ModelSettings(
-            reasoning=Reasoning(effort="medium", summary="auto") if is_openai_provider() else None,
-            response_include=["web_search_call.action.sources"] if is_openai_provider() else None,
+            reasoning=Reasoning(effort="medium", summary="auto") if is_openai_provider(MODEL_ENV_VAR) else None,
+            response_include=["web_search_call.action.sources"] if is_openai_provider(MODEL_ENV_VAR) else None,
         ),
         tools=[
             WebSearchTool(),

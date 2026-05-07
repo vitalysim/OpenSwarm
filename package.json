@@ -13,6 +13,8 @@
         "run.py",
         "swarm.py",
         "config.py",
+        "auth_registry.py",
+        "subscription_models.py",
         "helpers.py",
         "server.py",
         "shared_instructions.md",
