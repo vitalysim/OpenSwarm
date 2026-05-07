@@ -182,6 +182,13 @@ Tagged releases build `openswarm-tui-*` binaries from the vendored source via
 `.github/workflows/build-tui.yml`. Set `OPENSWARM_TUI_URL` to test a custom
 binary download URL locally.
 
+**Project navigation:**
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) explains the system components and where
+  to make changes.
+- [CHANGELOG.md](CHANGELOG.md) tracks notable implementation and release
+  changes.
+
 ---
 
 ## 📺 Learn More
