@@ -34,6 +34,14 @@ function getBinaryName() {
   return `openswarm-tui-${process.platform === 'darwin' ? 'darwin' : 'linux'}-${arch}`
 }
 
+function getLocalBuildBinaryPath() {
+  const arch = os.arch() === 'arm64' ? 'arm64' : 'x64'
+  const platform = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'darwin' : 'linux'
+  const dist = `agentswarm-cli-${platform}-${arch}`
+  const filename = process.platform === 'win32' ? 'agentswarm.exe' : 'agentswarm'
+  return path.join(packageDir, 'packages', 'openswarm-tui', 'packages', 'opencode', 'dist', dist, 'bin', filename)
+}
+
 function getDownloadUrl(binaryName) {
   const explicit = process.env.OPENSWARM_TUI_URL && process.env.OPENSWARM_TUI_URL.trim()
   if (explicit) return explicit
@@ -138,6 +146,9 @@ async function download(url, destination) {
 }
 
 async function ensureCustomBinary() {
+  const localBuild = resolveCustomBinary(getLocalBuildBinaryPath())
+  if (localBuild) return localBuild
+
   const binaryName = getBinaryName()
   const binaryPath = path.join(packageDir, binaryName)
   const existing = resolveCustomBinary(binaryPath)

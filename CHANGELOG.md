@@ -57,6 +57,14 @@ and uses semantic versioning where packaged releases allow it.
   a generic Agency Swarm server that does not expose OpenSwarm model-control
   routes.
 - Dialog-rendered model management now has access to the model context.
+- Local launchers (`run.py` and `bin/openswarm`) now discover the locally-built
+  TUI binary under `packages/openswarm-tui/.../dist/`, so a fresh `npm run
+  build:tui` is used immediately instead of falling back to the upstream
+  `agentswarm-cli` from npm.
+- Initial TUI agency target now uses the registered swarm id (e.g. `open-swarm`)
+  instead of the agency display name (`OpenSwarm`), preventing
+  `Streaming request failed (404): {"detail":"Not Found"}` on the first prompt
+  in a multi-swarm setup.
 
 ## 2026-05-07
 

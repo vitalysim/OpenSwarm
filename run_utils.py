@@ -18,6 +18,33 @@ def _resolve_bin_name() -> str:
     return f"openswarm-tui-linux-{arch}"
 
 
+def _resolve_dist_dirname() -> str:
+    """Return the local-build dist directory name produced by `npm run build:tui`."""
+    import platform
+    machine = platform.machine().lower()
+    arch = "arm64" if machine in ("arm64", "aarch64") else "x64"
+    if sys.platform == "win32":
+        return f"agentswarm-cli-windows-{arch}"
+    if sys.platform == "darwin":
+        return f"agentswarm-cli-darwin-{arch}"
+    return f"agentswarm-cli-linux-{arch}"
+
+
+def _resolve_local_tui_bin() -> Path | None:
+    """Locate a usable local TUI binary, preferring a release-style drop at the repo root."""
+    repo = Path(__file__).resolve().parent
+    bin_filename = "agentswarm.exe" if sys.platform == "win32" else "agentswarm"
+    candidates = [
+        repo / _resolve_bin_name(),
+        repo / "packages" / "openswarm-tui" / "packages" / "opencode"
+            / "dist" / _resolve_dist_dirname() / "bin" / bin_filename,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def _ensure_node_playwright_browsers(repo: Path) -> None:
     """Install Node Playwright browsers where the HTML-to-PPTX runner looks for them."""
     cli = repo / "node_modules" / "playwright" / "cli.js"
@@ -285,9 +312,8 @@ def main() -> None:
     os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
     if not os.getenv("AGENTSWARM_BIN"):
-        _repo = Path(__file__).resolve().parent
-        local_exe = _repo / _resolve_bin_name()
-        if local_exe.exists():
+        local_exe = _resolve_local_tui_bin()
+        if local_exe is not None:
             os.environ["AGENTSWARM_BIN"] = str(local_exe)
 
     # Disable OpenAI Agents SDK tracing for terminal demo runs.

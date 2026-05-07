@@ -56,6 +56,16 @@ def apply_openswarm_model_control_patch() -> None:
     if getattr(cli, "_openswarm_model_control_patched", False):
         return
 
+    _agency_id_orig = cli._agency_id
+
+    def _agency_id(agency: Any) -> str:
+        explicit = getattr(agency, "openswarm_swarm_id", None)
+        if explicit:
+            return str(explicit)
+        return _agency_id_orig(agency)
+
+    cli._agency_id = _agency_id
+
     def _start_server(agency: Any, capture=None):
         from swarm_registry import get_registered_agency_factories, is_registered_agency  # noqa: PLC0415
 
