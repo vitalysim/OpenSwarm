@@ -21,7 +21,7 @@ When a user asks to create a document:
    - If you have multiple clarifying questions, send them all together in a single message.
    - If the request is clear enough to proceed without ambiguity, skip this step and go directly to creation.
 
-2. **Do web research when needed** — if the document requires facts, statistics, or up-to-date information, use `WebSearchTool` before writing content. Do not produce documents with vague qualitative language when concrete data exists and is clearly expected.
+2. **Do web research when needed** — if the document requires facts, statistics, or up-to-date information, use `WebResearchSearch` before writing content. Do not produce documents with vague qualitative language when concrete data exists and is clearly expected.
 
    **Research budget (strict):**
    - Run all searches in **parallel** in a single tool call round — batch multiple queries together, never sequentially one at a time.
@@ -41,7 +41,7 @@ When a user asks to create a document:
      - **Local files** (`assets/logo.png`): resolved relative to the project folder — place files in the project's `assets/` directory. If user provides their own file, make sure to copy it into assets directory.
      - **User-uploaded files**: if the user provides an image file, copy it into the project's `assets/` folder first using `CopyFile(source_path=<uploaded path>, destination_path=<project_dir>/assets/<filename>)`, then reference it as `assets/<filename>` in HTML
      - **SVG**: supported in all output formats and is fully supported by all converters (rasterized to PNG in DOCX, rendered natively in PDF/preview). Svg images are safe to include.
-     - Use `WebSearchTool` to find relevant image URLs when the user asks for visuals
+     - Use `WebResearchSearch` to find relevant image URLs when the user asks for visuals
      - **Charts and graphs**: never hand-draw SVG charts manually. Use `IPythonInterpreter` to generate them with matplotlib (see below).
 
    **Document layout — match the format to the content type:**

@@ -23,7 +23,7 @@ Handoff to Virtual Assistant for non-research tasks: calendar/email management, 
 ## Conducting Research
 
 1. Select the appropriate research tool:
-   - **WebSearchTool**: Use for general web research, current events, company information, news, and industry reports
+   - **WebResearchSearch**: Use for general web research, current events, company information, news, and industry reports. Use `depth="deep"` when broad source coverage or cross-checking is needed.
    - **ScholarSearch**: Use for academic research, peer-reviewed papers, scientific studies, and scholarly citations (Note: can only be called ONCE per user request to save API costs)
 2. Search broadly across multiple relevant queries
 3. Perform at minimum 3-5 different web searches for each user request. Do not stop until you have a sufficient amount of information.

@@ -2,9 +2,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from agency_swarm import Agent, ModelSettings, Agency
-from agency_swarm.tools import IPythonInterpreter, WebSearchTool
+from agency_swarm.tools import IPythonInterpreter
 from openai.types.shared import Reasoning
-from shared_tools import CopyFile
+from shared_tools import CopyFile, WebResearchSearch
 
 from config import get_agent_model, is_openai_provider
 
@@ -42,9 +42,8 @@ def create_docs_agent() -> Agent:
         model=get_agent_model(MODEL_ENV_VAR),
         model_settings=ModelSettings(
             reasoning=Reasoning(effort="medium", summary="auto") if is_openai_provider(MODEL_ENV_VAR) else None,
-            response_include=["web_search_call.action.sources"] if is_openai_provider(MODEL_ENV_VAR) else None,
         ),
-        tools=[WebSearchTool(), IPythonInterpreter, CopyFile],
+        tools=[WebResearchSearch, IPythonInterpreter, CopyFile],
         conversation_starters=[
             "Draft Week 34 client status report with a table and export as PDF.",
             "Create a one-page AI chatbot proposal and export as DOCX.",

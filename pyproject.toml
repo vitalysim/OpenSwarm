@@ -12,6 +12,7 @@ dependencies = [
     "rich",
     "fastapi",
     "uvicorn",
+    "requests",
     "composio==0.8.0",
     "composio-openai-agents==0.8.0",
     "pytz",

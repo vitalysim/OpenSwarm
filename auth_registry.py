@@ -51,7 +51,7 @@ AUTH_DEFINITIONS: tuple[AuthDefinition, ...] = (
         id="codex",
         name="Codex CLI",
         category="subscription",
-        capabilities=("text", "tools"),
+        capabilities=("text", "tools", "web_search"),
         status_command=("codex", "login", "status"),
         login_command="codex login",
         default_model="subscription/codex",
@@ -61,17 +61,35 @@ AUTH_DEFINITIONS: tuple[AuthDefinition, ...] = (
         id="claude",
         name="Claude Code",
         category="subscription",
-        capabilities=("text", "tools"),
+        capabilities=("text", "tools", "web_search"),
         status_command=("claude", "auth", "status"),
         login_command="claude auth login",
         default_model="subscription/claude",
         description="Uses local Claude Code subscription auth.",
     ),
     AuthDefinition(
+        id="codex_search",
+        name="Codex Web Search",
+        category="service",
+        capabilities=("subscription_web_search", "web_fetch"),
+        status_command=("codex", "login", "status"),
+        login_command="codex login",
+        description="Uses Codex CLI web_search from subscription auth.",
+    ),
+    AuthDefinition(
+        id="claude_search",
+        name="Claude Code Web Search",
+        category="service",
+        capabilities=("subscription_web_search", "web_fetch"),
+        status_command=("claude", "auth", "status"),
+        login_command="claude auth login",
+        description="Uses Claude Code WebSearch/WebFetch from subscription auth.",
+    ),
+    AuthDefinition(
         id="openai_api",
         name="OpenAI API",
         category="model_api",
-        capabilities=("text", "tools", "images", "video"),
+        capabilities=("text", "tools", "hosted_search", "images", "video"),
         env_keys=("OPENAI_API_KEY",),
         setup_url="https://platform.openai.com/api-keys",
         default_model="gpt-5.2",
@@ -287,16 +305,21 @@ def _check_command_status(definition: AuthDefinition) -> AuthStatus:
     stdout = (result.stdout or "").strip()
     stderr = (result.stderr or "").strip()
     combined = "\n".join(part for part in (stdout, stderr) if part)
-    if definition.id == "codex":
+    if definition.id in {"codex", "codex_search"}:
         if result.returncode == 0 and "Logged in" in combined:
-            return _available_command_status(definition, combined)
-    elif definition.id == "claude":
+            detail = combined
+            if definition.id == "codex_search":
+                detail = f"{combined}; web_search available via codex exec"
+            return _available_command_status(definition, detail)
+    elif definition.id in {"claude", "claude_search"}:
         try:
             payload = json.loads(stdout)
             if result.returncode == 0 and payload.get("loggedIn"):
                 auth_method = payload.get("authMethod") or "authenticated"
                 subscription = payload.get("subscriptionType")
                 detail = auth_method if not subscription else f"{auth_method}, {subscription}"
+                if definition.id == "claude_search":
+                    detail = f"{detail}; WebSearch/WebFetch available"
                 return _available_command_status(definition, detail)
         except json.JSONDecodeError:
             pass

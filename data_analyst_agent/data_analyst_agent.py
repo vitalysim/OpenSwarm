@@ -2,12 +2,11 @@ import os
 from agency_swarm import Agent, ModelSettings
 from openai.types.shared.reasoning import Reasoning
 from agency_swarm.tools import (
-    WebSearchTool,
     PersistentShellTool,
     IPythonInterpreter,
     LoadFileAttachment,
 )
-from shared_tools import CopyFile, ExecuteTool, FindTools, ManageConnections, SearchTools
+from shared_tools import CopyFile, ExecuteTool, FindTools, ManageConnections, SearchTools, WebResearchSearch
 
 from config import get_agent_model, is_openai_provider
 
@@ -23,7 +22,7 @@ def create_data_analyst() -> Agent:
         tools_folder=os.path.join(current_dir, "tools"),
         model=get_agent_model(MODEL_ENV_VAR),
         tools=[
-            WebSearchTool(),
+            WebResearchSearch,
             PersistentShellTool,
             IPythonInterpreter,
             LoadFileAttachment,
@@ -36,7 +35,6 @@ def create_data_analyst() -> Agent:
         model_settings=ModelSettings(
             reasoning=Reasoning(effort="medium", summary="auto") if is_openai_provider(MODEL_ENV_VAR) else None,
             truncation="auto",
-            response_include=["web_search_call.action.sources"] if is_openai_provider(MODEL_ENV_VAR) else None,
         ),
         conversation_starters=[
             "Analyze this CSV file and show me the key trends.",

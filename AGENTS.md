@@ -120,6 +120,7 @@ The coding agent will read this file, understand the structure, and make the rig
 - Local subscription model IDs are supported for reasoning agents:
   - `subscription/codex` uses the local Codex CLI login
   - `subscription/claude` uses the local Claude Code login
+- Web research uses `WebResearchSearch`, which can use Codex/Claude Code subscription search first and OpenAI/SearchAPI as fallback (`WEB_SEARCH_MODE`, `WEB_SEARCH_PROVIDER_ORDER`, `WEB_SEARCH_DEEP_MIX`)
 - Check model/API/service authentication with `python onboard.py --status`
 
 Before proceeding with agent creation, please read the following instructions carefully:

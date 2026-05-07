@@ -101,10 +101,12 @@ The setup wizard can use multiple authentication sources at the same time:
 
 - `subscription/codex` - Uses your local Codex CLI login (`codex login`)
 - `subscription/claude` - Uses your local Claude Code login (`claude auth login`)
+- Subscription web search is available through `WebResearchSearch`; by default
+  it uses Codex/Claude Code search first and falls back to API-backed search.
 
 **API keys for direct provider APIs and media tools:**
 
-- `OPENAI_API_KEY` - OpenAI API models, OpenAI Images, and Sora video generation
+- `OPENAI_API_KEY` - OpenAI API models, hosted web search fallback, OpenAI Images, and Sora video generation
 - `ANTHROPIC_API_KEY` - Anthropic API models through LiteLLM
 - `GOOGLE_API_KEY` - Gemini model/image generation + Veo video
 
@@ -112,7 +114,7 @@ The setup wizard can use multiple authentication sources at the same time:
 
 - `COMPOSIO_API_KEY` - Unlock 10,000+ integrations (Gmail, Slack, GitHub, etc.)
 - `FAL_KEY` - Advanced video editing and effects
-- `SEARCH_API_KEY` - Web search for research agent
+- `SEARCH_API_KEY` - SearchAPI fallback, Google Scholar search, and product search
 - `PEXELS_API_KEY`, `PIXABAY_API_KEY`, `UNSPLASH_ACCESS_KEY` - stock image search
 
 Check everything with:

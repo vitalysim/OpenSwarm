@@ -110,7 +110,7 @@ Use this layout when working with `IPythonInterpreter` or `PersistentShellTool` 
 3.  **Research (Two-Stage Approach)**:
     *   *Stage 1 Broad Search*: Run **multiple searches in parallel** (batch them in a single tool call turn) to get context, key facts, brand signals, and asset URLs in one round. Do not run searches sequentially one at a time.
     *   *Stage 2 Deep Analysis*: Fetch 1–2 high-value URLs (official docs, landing page) for deeper content. This is optional — skip if Stage 1 already gives enough substance.
-    *   *Hard Guard*: Do **not** call ProgrammaticTool/IPythonInterpreter/PersistentShellTool for web fetching before at least one **WebSearchTool** call is completed in the current task. The only exception is when the user explicitly provides exact URLs and asks to skip search.
+    *   *Hard Guard*: Do **not** call ProgrammaticTool/IPythonInterpreter/PersistentShellTool for web fetching before at least one **WebResearchSearch** call is completed in the current task. The only exception is when the user explicitly provides exact URLs and asks to skip search.
     *   *Research budget*: Complete all research in **maximum 3 tool call rounds** total (Stage 1 + Stage 2 + any follow-up). After 3 rounds, stop and proceed to slides with what you have.
     *   **Asset extraction tip**: In case regular web search fails for a specific web page, do a text-only fetch. Dynamic (JS-rendered) sites won't show content via a live browser open, but a plain text fetch reliably surfaces image asset URLs, logo paths, and brand copy directly embedded in the HTML. Use those URLs with `DownloadImage` for high-fidelity on-brand visuals.
     *   **What to extract during research** — do not stop at general context. For every topic, actively hunt for:
@@ -191,7 +191,7 @@ Select the right tool based on the content type.
 | **Statistical Charts** (Bar, Line, Pie, Radar) | ModifySlide | Use **Chart.js** or **ECharts** via CDN |
 | **Simple Logic** (Venn, Matrix, Timeline) | ModifySlide | Use **Canvas 2D API** |
 
-**Image sourcing rule (critical):** Never construct, guess, or recall image URLs from memory. Every URL passed to `DownloadImage` must come directly from a tool result — either `ImageSearch` or `WebSearchTool`.
+**Image sourcing rule (critical):** Never construct, guess, or recall image URLs from memory. Every URL passed to `DownloadImage` must come directly from a tool result — either `ImageSearch` or `WebResearchSearch`.
 
 **SVG logo/icon ban (critical):** Never draw logos, brand icons, or product icons as hand-crafted inline SVG. SVG-drawn icons look amateurish and do not represent the real brand. 
 **Background Image Strategy (optional):**
