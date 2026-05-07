@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import {
   buildAgencyTargetOptions,
+  displayRunFrameworkContext,
   resolveAgencyHandoffRecipientFromMessages,
   resolveAgencyRouteSelection,
   resolveAgencyTargetFromPicker,
@@ -559,3 +560,25 @@ function agency(id: string, name: string) {
     agents: [],
   }
 }
+
+describe("displayRunFrameworkContext", () => {
+  test("returns swarm/agent for framework runs", () => {
+    expect(
+      displayRunFrameworkContext({ frameworkMode: true, agency: "open-swarm", agent: "Orchestrator" }),
+    ).toBe("open-swarm / Orchestrator")
+  })
+
+  test("returns swarm alone when agent is missing", () => {
+    expect(displayRunFrameworkContext({ frameworkMode: true, agency: "open-swarm" })).toBe("open-swarm")
+  })
+
+  test("falls back to model label when not framework mode", () => {
+    expect(
+      displayRunFrameworkContext({ frameworkMode: false, fallbackModel: "gpt-5.2", agency: "x", agent: "y" }),
+    ).toBe("gpt-5.2")
+  })
+
+  test("returns undefined when nothing is available", () => {
+    expect(displayRunFrameworkContext({ frameworkMode: true })).toBeUndefined()
+  })
+})

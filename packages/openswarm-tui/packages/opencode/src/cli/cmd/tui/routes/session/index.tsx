@@ -88,7 +88,8 @@ import { useTuiConfig } from "../../context/tui-config"
 import { getScrollAcceleration } from "../../util/scroll"
 import { TuiPluginRuntime } from "../../plugin"
 import { describeStreamAuthError, isAgencySwarmFrameworkMode } from "../../session-error"
-import { displayRunOnlyModeLabel } from "../../util/agency-target"
+import { displayRunFrameworkContext, displayRunOnlyModeLabel, readAgencyProviderOptions } from "../../util/agency-target"
+import { AgencySwarmAdapter } from "@/agency-swarm/adapter"
 import { getRevertDiffFiles } from "../../util/revert-diff"
 
 addDefaultParsers(parsers.parsers)
@@ -1348,6 +1349,19 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
   })
   const model = createMemo(() => Model.name(ctx.providers(), props.message.providerID, props.message.modelID))
 
+  const frameworkContext = createMemo(() => {
+    if (!ctx.frameworkMode()) return undefined
+    const options = readAgencyProviderOptions({
+      configuredProvider: sync.data.config.provider?.[AgencySwarmAdapter.PROVIDER_ID],
+      connectedProvider: sync.data.provider.find((item) => item.id === AgencySwarmAdapter.PROVIDER_ID),
+    })
+    return displayRunFrameworkContext({
+      frameworkMode: true,
+      agency: options.agency,
+      agent: props.message.agent,
+    })
+  })
+
   const final = createMemo(() => {
     return props.message.finish && !["tool-calls", "unknown"].includes(props.message.finish)
   })
@@ -1423,7 +1437,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
                   mode: props.message.mode,
                 })}
               </span>
-              <span style={{ fg: theme.textMuted }}> · {model()}</span>
+              <span style={{ fg: theme.textMuted }}> · {frameworkContext() ?? model()}</span>
               <Show when={duration()}>
                 <span style={{ fg: theme.textMuted }}> · {Locale.duration(duration())}</span>
               </Show>

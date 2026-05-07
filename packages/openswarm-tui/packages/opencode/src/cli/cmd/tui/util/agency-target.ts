@@ -375,6 +375,21 @@ export function displayRunOnlyModeLabel(input: { frameworkMode: boolean; mode: s
   return Locale.titlecase(input.mode)
 }
 
+export function displayRunFrameworkContext(input: {
+  frameworkMode: boolean
+  agency?: string
+  agent?: string
+  fallbackModel?: string
+}): string | undefined {
+  if (!input.frameworkMode) return input.fallbackModel
+  const swarm = input.agency
+  const agent = input.agent ? displayAgentName(input.agent) : undefined
+  if (swarm && agent) return `${swarm} / ${agent}`
+  if (swarm) return swarm
+  if (agent) return agent
+  return input.fallbackModel
+}
+
 function resolveSelectableAgency(agencies: AgencySwarmAdapter.AgencyDescriptor[], configuredAgency?: string) {
   if (configuredAgency) return agencies.find((agency) => agency.id === configuredAgency)
   if (agencies.length === 1) return agencies[0]

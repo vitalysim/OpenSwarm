@@ -161,18 +161,23 @@ export function DialogAgent() {
         category: "agency-swarm",
       })
     }
+    const activeAgency = providerOptions().agency
+    const activeRecipient = providerOptions().recipientAgent
     for (const agency of agencies) {
       const category = `Swarm: ${agency.name}`
       const entry = agency.agents.find((agent) => agent.isEntryPoint) ?? agency.agents[0]
-      const description =
+      const baseDescription =
         agency.description && agency.description !== entry?.description ? agency.description : undefined
+      const agentCount = `${agency.agents.length} agent${agency.agents.length === 1 ? "" : "s"}`
+      const swarmDescription = baseDescription ? `${baseDescription} · ${agentCount}` : agentCount
+      const isActiveAgency = activeAgency === agency.id
       result.push({
         value: {
           kind: "agency",
           agency: agency.id,
         },
-        title: agency.name,
-        description,
+        title: isActiveAgency && !activeRecipient ? `● ${agency.name}` : agency.name,
+        description: swarmDescription,
         category,
       })
       for (const agent of agency.agents) {
@@ -180,13 +185,14 @@ export function DialogAgent() {
           openSwarmModels.routeAgency?.() === agency.id
             ? (openSwarmModels.agentModel(agent.id) ?? openSwarmModels.agentModel(agent.name))
             : undefined
+        const isActiveRecipient = isActiveAgency && activeRecipient === agent.id
         result.push({
           value: {
             kind: "recipient",
             agency: agency.id,
             recipientAgent: agent.id,
           },
-          title: `- ${agent.name}`,
+          title: isActiveRecipient ? `● ${agent.name}` : `- ${agent.name}`,
           description: agentDescription(agent, model),
           category,
         })

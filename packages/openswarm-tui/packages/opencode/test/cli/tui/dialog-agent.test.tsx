@@ -210,10 +210,10 @@ describe("DialogAgent agency selection", () => {
     await Bun.sleep(0)
     await flushEffects()
 
-    const agencyOption = selectProps?.options.find((option) => option.title === "Live Agency")
+    const agencyOption = selectProps?.options.find((option) => option.title === "● Live Agency")
     expect(agencyOption).toBeDefined()
     expect(agencyOption?.category).toBe("Swarm: Live Agency")
-    expect(agencyOption?.description).toBeUndefined()
+    expect(agencyOption?.description).toBe("2 agents")
 
     selectProps!.onSelect!(agencyOption!)
     await flushEffects()

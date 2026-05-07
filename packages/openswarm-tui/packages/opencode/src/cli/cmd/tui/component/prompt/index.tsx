@@ -277,8 +277,8 @@ export function Prompt(props: PromptProps) {
     const swarm = frameworkSwarmLabel()
     const recipient = frameworkRecipientLabel()
     if (!swarm) return recipient
-    if (!recipient) return swarm
-    return `${swarm} / ${recipient}`
+    if (!recipient) return `Swarm: ${swarm}`
+    return `Swarm: ${swarm} · ${recipient}`
   })
 
   createEffect(
