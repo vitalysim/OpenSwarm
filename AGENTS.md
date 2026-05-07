@@ -85,7 +85,7 @@ To build your own swarm from this repo:
    - Update `swarm.py` to import and register the renamed agent
 3. **Add or remove tools** inside each agent's `tools/` folder
 4. **Update `shared_instructions.md`** with any context all agents should share
-5. **Run** with `python run.py`
+5. **Run** with `uv run python run.py`
 
 ### Example prompt to give your coding agent
 
@@ -117,11 +117,16 @@ The coding agent will read this file, understand the structure, and make the rig
 - Tools live in `tools/` and are auto-loaded by the agent definition
 - `shared_tools/` contains Composio-powered integrations (Gmail, Slack, GitHub, etc.) available to all agents
 - Models are configured via `DEFAULT_MODEL` and optional per-agent model env vars in `.env` — never hardcoded
+- Use `uv` for Python environments and dependency installation:
+  - `uv sync` creates/updates the repo-local `.venv`
+  - `uv sync --group dev` includes test dependencies
+  - `uv run python ...` runs commands inside that environment
+  - Do not install project dependencies with global `pip`
 - Local subscription model IDs are supported for reasoning agents:
   - `subscription/codex` uses the local Codex CLI login
   - `subscription/claude` uses the local Claude Code login
 - Web research uses `WebResearchSearch`, which can use Codex/Claude Code subscription search first and OpenAI/SearchAPI as fallback (`WEB_SEARCH_MODE`, `WEB_SEARCH_PROVIDER_ORDER`, `WEB_SEARCH_DEEP_MIX`)
-- Check model/API/service authentication with `python onboard.py --status`
+- Check model/API/service authentication with `uv run python onboard.py --status`
 
 Before proceeding with agent creation, please read the following instructions carefully:
 

@@ -1,6 +1,6 @@
 """Compatibility entry point for local OpenSwarm runs.
 
-This keeps the documented `python run.py` workflow working while the reusable
+This keeps the documented `uv run python run.py` workflow working while the reusable
 launcher implementation lives in `run_utils.py`.
 """
 

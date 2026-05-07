@@ -58,14 +58,14 @@ git clone <repository-url> ./mcp_servers/<server-name>
 cd ./mcp_servers/<server-name>
 # Common patterns:
 npm install  # for Node.js servers
-pip install -r requirements.txt  # for Python servers
 uv sync  # for uv-based Python projects
+uv pip install -r requirements.txt  # for Python servers with requirements.txt
 ```
 
 3. Note the command needed to run the server (from README):
 
    - Node.js: `npx`, `node`, or `npm run`
-   - Python: `python`, `uv run`, or `poetry run`
+   - Python: `uv run python` or `uv run`
 
 4. Check if API keys are needed and add them to `.env` file
 
@@ -391,7 +391,7 @@ if __name__ == "__main__":
 **Run the test:**
 
 ```bash
-python agent_name/agent_name.py
+uv run python agent_name/agent_name.py
 ```
 
 **Expected output:**
@@ -624,5 +624,5 @@ User wants to add MCP server
       ├─ Clone repo to ./mcp_servers/<name>
       ├─ Install dependencies
       ├─ Configure command and args
-      └─ Test with python agent_name.py
+      └─ Test with uv run python agent_name.py
 ```

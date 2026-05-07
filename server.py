@@ -1,4 +1,4 @@
-# FastAPI entry point — run with: python server.py
+# FastAPI entry point - run with: uv run python server.py
 
 import logging
 from dotenv import load_dotenv

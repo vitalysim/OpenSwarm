@@ -172,7 +172,7 @@ Test the individual tools from the list to confirm the server is working by invo
 **How to invoke an MCP tool:**
 
 ```python
-python -c "
+uv run python -c "
 import asyncio
 import json
 from agent_name.mcp_servers.server_name_mcp import tools
@@ -189,7 +189,7 @@ asyncio.run(test())
 **Example - Testing list_allowed_directories:**
 
 ```python
-python -c "
+uv run python -c "
 import asyncio
 from example_agent.mcp_servers.filesystem_mcp import tools
 
@@ -236,7 +236,7 @@ Additionally, don't forget to set the `files_folder` to "./files" which points t
 
 ### Step 6: Add Extra Packages
 
-To `requirements.txt`, add the following packages:
+To `pyproject.toml`, add the following project dependencies and keep `requirements.txt` in sync for legacy/Docker consumers:
 
 ```
 nest_asyncio
@@ -246,10 +246,10 @@ agency_swarm[jupyter]
 After that, install the requirements using the following command:
 
 ```bash
-pip install -U -r requirements.txt
+uv sync
 ```
 
-**Important**: Make sure venv is activated before installing the requirements. If not, check if it exists and activate or create it first.
+**Important**: Use the repo-local uv environment. Run `uv sync` to create/update `.venv`, and run tests with `uv run python ...`.
 
 ### Step 7: Update instructions.md
 
@@ -330,4 +330,4 @@ When you need to access MCP tools:
 - If credentials for testing are missing, notify the user to provide them before starting this task.
 - YOU MUST NEVER SKIP THE TEST. NEVER RUN A DUMMY TEST CASE WITH ONLY PRINT STATEMENTS OR IMPORTS. TEST AT LEAST 1 TOOL FOR EACH SERVER. ASK THE USER TO PROVIDE THE CREDENTIALS IF NEEDED.
 - DO NOT tell the user the task has been completed until you have tested at least 1 tool for each MCP server.
-- Test tools by running python in terminal using source `venv/bin/activate && python -c "<your test code>"`, instead of creating local python files.
+- Test tools by running `uv run python -c "<your test code>"` in terminal, instead of creating local python files.

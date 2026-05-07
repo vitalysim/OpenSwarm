@@ -42,6 +42,50 @@ def _uv_env() -> dict[str, str]:
     return env
 
 
+def _uv_cmd() -> list[str]:
+    uv = shutil.which("uv")
+    if uv:
+        return [uv]
+
+    print("uv not found; installing uv first, please wait...\n")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "uv"])
+    uv = shutil.which("uv")
+    if uv:
+        return [uv]
+
+    user_base = subprocess.check_output(
+        [sys.executable, "-m", "site", "--user-base"],
+        text=True,
+    ).strip()
+    candidate = Path(user_base) / ("Scripts" if sys.platform == "win32" else "bin") / (
+        "uv.exe" if sys.platform == "win32" else "uv"
+    )
+    if candidate.exists():
+        return [str(candidate)]
+
+    return [sys.executable, "-m", "uv"]
+
+
+def _project_venv_python(repo: Path) -> Path:
+    if sys.platform == "win32":
+        return repo / ".venv" / "Scripts" / "python.exe"
+    return repo / ".venv" / "bin" / "python"
+
+
+def _in_project_venv(repo: Path) -> bool:
+    try:
+        return Path(sys.executable).resolve() == _project_venv_python(repo).resolve()
+    except OSError:
+        return False
+
+
+def _sync_project_venv(repo: Path) -> None:
+    subprocess.check_call(
+        _uv_cmd() + ["sync", "--project", str(repo)],
+        env=_uv_env(),
+    )
+
+
 # ── Bootstrap: create venv + install deps automatically on first run ─────────
 # Only stdlib imports above. _bootstrap() is called explicitly — either from
 # swarm.py (via `from run import _bootstrap; _bootstrap()`) or from the
@@ -49,6 +93,16 @@ def _uv_env() -> dict[str, str]:
 # is safe to call from outside the venv.
 def _bootstrap() -> None:
     _repo = Path(__file__).resolve().parent
+    _venv_python = _project_venv_python(_repo)
+
+    if not _in_project_venv(_repo):
+        if not _venv_python.exists():
+            print("Creating .venv and installing Python dependencies with uv, please wait...\n")
+            _sync_project_venv(_repo)
+            print("\nDone.\n")
+
+        os.execv(str(_venv_python), [str(_venv_python), *sys.argv])
+
     # Ensure deps are present.
     try:
         import dotenv        # noqa: F401
@@ -56,13 +110,8 @@ def _bootstrap() -> None:
         import questionary   # noqa: F401
         import agency_swarm  # noqa: F401
     except ImportError:
-        print("Installing dependencies, please wait…\n")
-        if not shutil.which("uv"):
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "uv"])
-        uv_cmd = ["uv", "pip", "install", "--system", "--python", sys.executable, str(_repo)]
-        if sys.platform != "win32":
-            uv_cmd.append("--break-system-packages")
-        subprocess.check_call(uv_cmd, env=_uv_env())
+        print("Installing Python dependencies into .venv with uv, please wait...\n")
+        _sync_project_venv(_repo)
         print("\nDone.\n")
 
     # Ensure the Playwright browser binary for the installed playwright version

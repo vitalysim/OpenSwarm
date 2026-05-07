@@ -2,13 +2,16 @@ FROM python:3.13-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    VIRTUAL_ENV=/app/.venv
 
 
 # Keep a deterministic PATH (avoid `${PATH}` evaluation issues in some BuildKit setups).
-ENV PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV PATH=/app/.venv/bin:/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 WORKDIR /app
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 # Install system dependencies for:
 # - Node.js (for html2pptx)
@@ -50,8 +53,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 
 # Copy Python requirements first for layer caching
 COPY requirements.txt .
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN uv venv "$VIRTUAL_ENV" && \
+    uv pip install --python "$VIRTUAL_ENV/bin/python" --no-cache -r requirements.txt
 
 # Copy Node.js package files and patches before install so patch-package can apply them
 COPY package.json package-lock.json* ./

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """OpenSwarm interactive setup wizard.
 
-Run directly:   python onboard.py
-Auto-launched:  python run.py  (when no provider key is found)
+Run directly:   uv run python onboard.py
+Auto-launched:  uv run python run.py  (when no provider key is found)
 """
 
 import argparse
@@ -316,8 +316,8 @@ def run_onboarding() -> None:
 
     console.print()
     console.print(Panel(
-        "[bold]python swarm.py[/bold]  [dim]launch interactive terminal[/dim]\n"
-        "[bold]python server.py[/bold]  [dim]start the API server[/dim]",
+        "[bold]uv run python run.py[/bold]  [dim]launch interactive terminal[/dim]\n"
+        "[bold]uv run python server.py[/bold]  [dim]start the API server[/dim]",
         border_style="green",
         padding=(0, 3),
     ))

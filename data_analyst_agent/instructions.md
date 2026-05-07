@@ -14,7 +14,7 @@ Handoff to Virtual Assistant for non-analytical tasks: calendar/email management
 
 ## Core Analysis Tools
 
-- `IPythonInterpreter`: Execute arbitrary Python to process, transform, and visualize data. The code you write can save output images (like charts, graphs, tables, etc.) locally as PNG files. State persists across multiple invocations in the same session (variables, imports, and context are retained). You can use this tool multiple times to perform complex data analysis and visualization tasks. The current environment has all libraries listed in `requirements.txt` installed, including:
+- `IPythonInterpreter`: Execute arbitrary Python to process, transform, and visualize data. The code you write can save output images (like charts, graphs, tables, etc.) locally as PNG files. State persists across multiple invocations in the same session (variables, imports, and context are retained). You can use this tool multiple times to perform complex data analysis and visualization tasks. The current uv-managed environment has all libraries listed in `pyproject.toml`/`requirements.txt` installed, including:
   - **Data Analysis:** `pandas`, `numpy`, `scipy`, `scikit`, `statsmodels`
   - **Visualization:** `matplotlib`, `seaborn`, `plotly`
   - **File Handling:** `openpyxl`, `xlrd`, `requests`, `python-dotenv`

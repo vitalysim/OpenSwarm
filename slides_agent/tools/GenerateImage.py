@@ -182,7 +182,7 @@ class GenerateImage(BaseTool):
             raise RuntimeError("No image data in response")
             
         except ImportError:
-            raise RuntimeError("Google GenAI package not installed. Please install: pip install google-genai")
+            raise RuntimeError("Google GenAI package not installed. Please install it with: uv add google-genai")
         except Exception as e:
             raise RuntimeError(f"Failed to generate image with Gemini: {e}")
 

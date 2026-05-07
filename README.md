@@ -120,7 +120,7 @@ The setup wizard can use multiple authentication sources at the same time:
 Check everything with:
 
 ```bash
-python onboard.py --status
+uv run python onboard.py --status
 ```
 
 Tools gracefully degrade when keys are missing — you'll get clear instructions on what to add.
@@ -141,8 +141,14 @@ Tools gracefully degrade when keys are missing — you'll get clear instructions
 ```bash
 git clone https://github.com/VRSEN/openswarm.git
 cd openswarm
-python swarm.py
+uv sync
+uv run python run.py
 ```
+
+OpenSwarm uses `uv` for local Python dependency management. `uv sync`
+creates `.venv` from `pyproject.toml`; run Python commands through
+`uv run ...` so they use that environment. For test dependencies, run
+`uv sync --group dev`.
 
 **Docker deployment:**
 
@@ -156,7 +162,7 @@ docker-compose up --build
 **API server:**
 
 ```bash
-python server.py           # Runs on localhost:8080
+uv run python server.py    # Runs on localhost:8080
 ```
 
 ---
