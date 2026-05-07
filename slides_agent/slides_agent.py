@@ -1,13 +1,12 @@
-from agency_swarm import Agent, ModelSettings
+from agency_swarm import Agent
 from agency_swarm.tools import IPythonInterpreter, PersistentShellTool, LoadFileAttachment
 from datetime import datetime, timezone
-from openai.types.shared import Reasoning
 from pathlib import Path
 from virtual_assistant.tools.ReadFile import ReadFile
 from shared_tools import WebResearchSearch
 from shared_tools.CopyFile import CopyFile
 
-from config import get_agent_model, is_openai_provider
+from config import get_agent_model, get_agent_model_settings
 
 # Import slide tools
 from .tools import (
@@ -91,10 +90,7 @@ def create_slides_agent() -> Agent:
             WebResearchSearch,
         ],
         model=get_agent_model(MODEL_ENV_VAR),
-        model_settings=ModelSettings(
-            reasoning=Reasoning(effort="high", summary="auto") if is_openai_provider(MODEL_ENV_VAR) else None,
-            verbosity="medium" if is_openai_provider(MODEL_ENV_VAR) else None,
-        ),
+        model_settings=get_agent_model_settings(MODEL_ENV_VAR, reasoning_effort="high", verbosity="medium"),
         conversation_starters=[
             "Create a new presentation about the benefits of using AI in the workplace.",
             "Edit my existing presentation and improve the design.",

@@ -11,6 +11,7 @@ import * as EventContext from "../../../src/cli/cmd/tui/context/event"
 import * as KeybindContext from "../../../src/cli/cmd/tui/context/keybind"
 import * as KVContext from "../../../src/cli/cmd/tui/context/kv"
 import * as LocalContext from "../../../src/cli/cmd/tui/context/local"
+import * as OpenSwarmModelsContext from "../../../src/cli/cmd/tui/context/openswarm-models"
 import * as ProjectContext from "../../../src/cli/cmd/tui/context/project"
 import { RouteProvider } from "../../../src/cli/cmd/tui/context/route"
 import * as SDKContext from "../../../src/cli/cmd/tui/context/sdk"
@@ -149,6 +150,57 @@ describe("prompt framework-mode footer", () => {
           set: () => {},
         },
       },
+    } as any)
+    spyOn(OpenSwarmModelsContext, "useOpenSwarmModels").mockReturnValue({
+      loading: () => false,
+      error: () => undefined,
+      state: () => ({
+        agency: "demo",
+        defaultModel: "subscription/codex",
+        allowCustom: true,
+        catalog: [],
+        agents: [
+          {
+            id: "orchestrator-slug",
+            name: "Orchestrator",
+            envKey: "ORCHESTRATOR_MODEL",
+            model: "subscription/codex",
+            modelLabel: "Codex subscription",
+            resolvedFrom: "agent",
+            isEntryPoint: true,
+            loaded: true,
+            available: true,
+            status: "available",
+          },
+        ],
+      }),
+      agentModel: () => ({
+        id: "orchestrator-slug",
+        name: "Orchestrator",
+        envKey: "ORCHESTRATOR_MODEL",
+        model: "subscription/codex",
+        modelLabel: "Codex subscription",
+        resolvedFrom: "agent",
+        isEntryPoint: true,
+        loaded: true,
+        available: true,
+        status: "available",
+      }),
+      currentAgentModel: () => ({
+        id: "orchestrator-slug",
+        name: "Orchestrator",
+        envKey: "ORCHESTRATOR_MODEL",
+        model: "subscription/codex",
+        modelLabel: "Codex subscription",
+        resolvedFrom: "agent",
+        isEntryPoint: true,
+        loaded: true,
+        available: true,
+        status: "available",
+      }),
+      refresh: mock(() => undefined),
+      setAgentModel: mock(async () => undefined),
+      frameworkMode: () => true,
     } as any)
     spyOn(SDKContext, "useSDK").mockReturnValue({
       client: {

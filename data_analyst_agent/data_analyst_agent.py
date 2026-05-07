@@ -1,6 +1,5 @@
 import os
-from agency_swarm import Agent, ModelSettings
-from openai.types.shared.reasoning import Reasoning
+from agency_swarm import Agent
 from agency_swarm.tools import (
     PersistentShellTool,
     IPythonInterpreter,
@@ -8,7 +7,7 @@ from agency_swarm.tools import (
 )
 from shared_tools import CopyFile, ExecuteTool, FindTools, ManageConnections, SearchTools, WebResearchSearch
 
-from config import get_agent_model, is_openai_provider
+from config import get_agent_model, get_agent_model_settings
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 instructions_path = os.path.join(current_dir, "instructions.md")
@@ -32,10 +31,7 @@ def create_data_analyst() -> Agent:
             ManageConnections,
             SearchTools,
         ],
-        model_settings=ModelSettings(
-            reasoning=Reasoning(effort="medium", summary="auto") if is_openai_provider(MODEL_ENV_VAR) else None,
-            truncation="auto",
-        ),
+        model_settings=get_agent_model_settings(MODEL_ENV_VAR, reasoning_effort="medium", truncation="auto"),
         conversation_starters=[
             "Analyze this CSV file and show me the key trends.",
             "Create a dashboard with charts from my sales data.",

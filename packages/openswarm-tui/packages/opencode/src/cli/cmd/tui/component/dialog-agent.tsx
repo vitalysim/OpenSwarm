@@ -1,12 +1,14 @@
 import { AgencySwarmAdapter } from "@/agency-swarm/adapter"
 import { displayAgentName } from "@/agent/display"
 import { useLocal } from "@tui/context/local"
+import { useOpenSwarmModels } from "@tui/context/openswarm-models"
 import { useSDK } from "@tui/context/sdk"
 import { useSync } from "@tui/context/sync"
 import { useDialog } from "@tui/ui/dialog"
+import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { useToast } from "@tui/ui/toast"
-import { createMemo, createResource } from "solid-js"
+import { createMemo, createResource, createSignal } from "solid-js"
 import { DialogAgencySwarmConnect } from "./dialog-provider"
 import { isAgencySwarmFrameworkMode } from "../session-error"
 import {
@@ -33,6 +35,9 @@ type AgentOptionValue =
   | {
       kind: "connect"
     }
+  | {
+      kind: "manage_models"
+    }
 
 export function DialogAgent() {
   const local = useLocal()
@@ -40,6 +45,7 @@ export function DialogAgent() {
   const sdk = useSDK()
   const dialog = useDialog()
   const toast = useToast()
+  const openSwarmModels = useOpenSwarmModels()
 
   const currentModel = createMemo(() => local.model.current())
   const agencySwarmEnabled = createMemo(() =>
@@ -158,6 +164,7 @@ export function DialogAgent() {
         category,
       })
       for (const agent of agency.agents) {
+        const model = openSwarmModels.agentModel(agent.id) ?? openSwarmModels.agentModel(agent.name)
         result.push({
           value: {
             kind: "recipient",
@@ -165,10 +172,23 @@ export function DialogAgent() {
             recipientAgent: agent.id,
           },
           title: `- ${agent.name}`,
-          description: agent.description || (agent.isEntryPoint ? "Entry point" : undefined),
+          description: agentDescription(agent, model),
           category,
         })
       }
+    }
+
+    const modelState = openSwarmModels.state()
+    if (agencies.length > 0 && (modelState || openSwarmModels.loading())) {
+      const currentModel = openSwarmModels.currentAgentModel()
+      result.push({
+        value: {
+          kind: "manage_models",
+        },
+        title: "Manage agent models",
+        description: currentModel ? `Current: ${currentModel.name} uses ${currentModel.modelLabel}` : "Loading models...",
+        category: "Actions",
+      })
     }
 
     if (result.length === 0) {
@@ -241,6 +261,11 @@ export function DialogAgent() {
           return
         }
 
+        if (option.value.kind === "manage_models") {
+          dialog.replace(() => <DialogOpenSwarmAgentModels />)
+          return
+        }
+
         void setAgencySwarmTarget(option.value).catch((error) => {
           toast.show({
             variant: "error",
@@ -295,5 +320,220 @@ export function DialogAgent() {
       message: selectedMessage,
       duration: 3000,
     })
+  }
+}
+
+function agentDescription(
+  agent: AgencySwarmAdapter.AgencyAgentDescriptor,
+  model: AgencySwarmAdapter.OpenSwarmAgentModelState | undefined,
+) {
+  const parts: string[] = []
+  if (agent.description) parts.push(agent.description)
+  else if (agent.isEntryPoint) parts.push("Entry point")
+  if (model) {
+    const suffix = model.resolvedFrom === "default" ? " via DEFAULT_MODEL" : ""
+    parts.push(`Model: ${model.modelLabel}${suffix}`)
+    if (!model.available) parts.push(`Status: ${model.status}`)
+  }
+  return parts.join(" | ") || undefined
+}
+
+type ModelAgentOption = {
+  kind: "agent"
+  agent: AgencySwarmAdapter.OpenSwarmAgentModelState
+}
+
+function DialogOpenSwarmAgentModels() {
+  const dialog = useDialog()
+  const models = useOpenSwarmModels()
+
+  const options = createMemo<DialogSelectOption<ModelAgentOption>[]>(() => {
+    const state = models.state()
+    if (!state && models.loading()) {
+      return [
+        {
+          value: { kind: "agent", agent: emptyAgent("Loading") },
+          title: "Loading OpenSwarm model status...",
+          disabled: true,
+        },
+      ]
+    }
+    if (!state) {
+      const error = models.error()
+      return [
+        {
+          value: { kind: "agent", agent: emptyAgent("Unavailable") },
+          title: "OpenSwarm model status unavailable",
+          description:
+            error instanceof Error ? error.message : error ? String(error) : "Check the local bridge and try again.",
+          disabled: true,
+        },
+      ]
+    }
+    return state.agents.map((agent) => ({
+      value: {
+        kind: "agent",
+        agent,
+      },
+      title: agent.name,
+      description: modelStatusDescription(agent),
+      category: "OpenSwarm agents",
+    }))
+  })
+
+  return (
+    <DialogSelect
+      title="Agent models"
+      options={options()}
+      onSelect={(option) => {
+        dialog.replace(() => <DialogOpenSwarmModelPicker agent={option.value.agent} />)
+      }}
+    />
+  )
+}
+
+type ModelCatalogOption =
+  | {
+      kind: "catalog"
+      model: AgencySwarmAdapter.OpenSwarmModelCatalogItem
+    }
+  | {
+      kind: "custom"
+    }
+
+function DialogOpenSwarmModelPicker(props: { agent: AgencySwarmAdapter.OpenSwarmAgentModelState }) {
+  const dialog = useDialog()
+  const toast = useToast()
+  const models = useOpenSwarmModels()
+  const [busy, setBusy] = createSignal(false)
+
+  const options = createMemo<DialogSelectOption<ModelCatalogOption>[]>(() => {
+    const state = models.state()
+    const catalog = state?.catalog ?? []
+    const result: DialogSelectOption<ModelCatalogOption>[] = catalog.map((item) => ({
+      value: {
+        kind: "catalog",
+        model: item,
+      },
+      title: item.label,
+      description: `${item.id}${item.available ? "" : ` | ${item.status}`}`,
+      category: item.source === "subscription" ? "Subscriptions" : "API providers",
+      disabled: busy(),
+    }))
+    if (state?.allowCustom !== false) {
+      result.push({
+        value: {
+          kind: "custom",
+        },
+        title: "Custom model ID",
+        description: "Use any OpenAI, subscription, or LiteLLM model string",
+        category: "Advanced",
+        disabled: busy(),
+      })
+    }
+    return result
+  })
+
+  return (
+    <DialogSelect
+      title={`Model for ${props.agent.name}`}
+      current={
+        options().find((option) => option.value.kind === "catalog" && option.value.model.id === props.agent.model)
+          ?.value
+      }
+      options={options()}
+      onSelect={(option) => {
+        if (option.value.kind === "custom") {
+          dialog.replace(() => <DialogOpenSwarmCustomModelPrompt agent={props.agent} />)
+          return
+        }
+        void updateModel(option.value.model.id)
+      }}
+    />
+  )
+
+  async function updateModel(modelID: string) {
+    setBusy(true)
+    try {
+      await models.setAgentModel(props.agent.name, modelID)
+      toast.show({
+        variant: "success",
+        message: `${props.agent.name} now uses ${modelID}`,
+        duration: 3000,
+      })
+      dialog.replace(() => <DialogOpenSwarmAgentModels />)
+    } catch (error) {
+      toast.show({
+        variant: "error",
+        message: error instanceof Error ? error.message : String(error),
+        duration: 6000,
+      })
+    } finally {
+      setBusy(false)
+    }
+  }
+}
+
+function DialogOpenSwarmCustomModelPrompt(props: { agent: AgencySwarmAdapter.OpenSwarmAgentModelState }) {
+  const dialog = useDialog()
+  const toast = useToast()
+  const models = useOpenSwarmModels()
+  const [busy, setBusy] = createSignal(false)
+
+  return (
+    <DialogPrompt
+      title={`Custom model for ${props.agent.name}`}
+      value={props.agent.model}
+      placeholder="subscription/codex, gpt-5.2, litellm/anthropic/..."
+      busy={busy()}
+      busyText="Updating model..."
+      onConfirm={(value) => {
+        void updateModel(value)
+      }}
+    />
+  )
+
+  async function updateModel(value: string) {
+    const modelID = value.trim()
+    if (!modelID) return
+    setBusy(true)
+    try {
+      await models.setAgentModel(props.agent.name, modelID)
+      toast.show({
+        variant: "success",
+        message: `${props.agent.name} now uses ${modelID}`,
+        duration: 3000,
+      })
+      dialog.replace(() => <DialogOpenSwarmAgentModels />)
+    } catch (error) {
+      toast.show({
+        variant: "error",
+        message: error instanceof Error ? error.message : String(error),
+        duration: 6000,
+      })
+    } finally {
+      setBusy(false)
+    }
+  }
+}
+
+function modelStatusDescription(agent: AgencySwarmAdapter.OpenSwarmAgentModelState) {
+  const source = agent.resolvedFrom === "default" ? "DEFAULT_MODEL" : agent.envKey
+  const status = agent.available ? agent.status : `${agent.status}: ${agent.statusDetail ?? "not available"}`
+  return `${agent.modelLabel} | ${source} | ${status}`
+}
+
+function emptyAgent(name: string): AgencySwarmAdapter.OpenSwarmAgentModelState {
+  return {
+    id: name,
+    name,
+    envKey: "",
+    model: "",
+    modelLabel: "",
+    resolvedFrom: "agent",
+    isEntryPoint: false,
+    loaded: false,
+    available: false,
+    status: "unknown",
   }
 }

@@ -105,6 +105,103 @@ describe("agency-swarm.adapter", () => {
     expect(calls).toEqual(["https://example.com/proxy/openapi.json", "https://example.com/proxy/builder/get_metadata"])
   })
 
+  test("getOpenSwarmModels loads per-agent model state", async () => {
+    let requestedURL = ""
+    globalThis.fetch = asFetch(async (input: RequestInfo | URL) => {
+      requestedURL = input.toString()
+      return new Response(
+        JSON.stringify({
+          agency: "OpenSwarm",
+          defaultModel: "subscription/codex",
+          allowCustom: true,
+          catalog: [
+            {
+              id: "subscription/codex",
+              label: "Codex subscription",
+              provider: "codex",
+              source: "subscription",
+              available: true,
+              status: "available",
+            },
+          ],
+          agents: [
+            {
+              name: "Slides Agent",
+              envKey: "SLIDES_AGENT_MODEL",
+              model: "subscription/claude",
+              modelLabel: "Claude Code subscription",
+              resolvedFrom: "agent",
+              isEntryPoint: false,
+              loaded: true,
+              available: true,
+              status: "available",
+            },
+          ],
+        }),
+        { status: 200 },
+      )
+    })
+
+    const result = await AgencySwarmAdapter.getOpenSwarmModels({
+      baseURL: "http://127.0.0.1:8000",
+      agency: "OpenSwarm",
+      live: false,
+    })
+
+    expect(requestedURL).toBe("http://127.0.0.1:8000/OpenSwarm/openswarm/models?live=false")
+    expect(result.agents[0]).toMatchObject({
+      name: "Slides Agent",
+      model: "subscription/claude",
+      modelLabel: "Claude Code subscription",
+      available: true,
+    })
+  })
+
+  test("setOpenSwarmAgentModel posts selected model id", async () => {
+    let requestBody: Record<string, unknown> | undefined
+    let requestedURL = ""
+    globalThis.fetch = asFetch(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requestedURL = input.toString()
+      requestBody = JSON.parse(typeof init?.body === "string" ? init.body : "{}")
+      return new Response(
+        JSON.stringify({
+          agency: "OpenSwarm",
+          defaultModel: "subscription/codex",
+          allowCustom: true,
+          catalog: [],
+          agents: [
+            {
+              name: "Slides Agent",
+              envKey: "SLIDES_AGENT_MODEL",
+              model: "subscription/codex",
+              modelLabel: "Codex subscription",
+              resolvedFrom: "agent",
+              isEntryPoint: false,
+              loaded: true,
+              available: true,
+              status: "available",
+            },
+          ],
+        }),
+        { status: 200 },
+      )
+    })
+
+    const result = await AgencySwarmAdapter.setOpenSwarmAgentModel({
+      baseURL: "http://127.0.0.1:8000",
+      agency: "OpenSwarm",
+      agent: "Slides Agent",
+      model: "subscription/codex",
+    })
+
+    expect(requestedURL).toBe("http://127.0.0.1:8000/OpenSwarm/openswarm/agent-model")
+    expect(requestBody).toEqual({
+      agent: "Slides Agent",
+      model: "subscription/codex",
+    })
+    expect(result.agents[0].model).toBe("subscription/codex")
+  })
+
   test("streamRun parses meta data messages and end frames", async () => {
     globalThis.fetch = asFetch(async () => {
       const stream = new ReadableStream<Uint8Array>({

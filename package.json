@@ -14,6 +14,7 @@
         "swarm.py",
         "config.py",
         "auth_registry.py",
+        "model_control.py",
         "subscription_models.py",
         "helpers.py",
         "server.py",
@@ -34,7 +35,7 @@
     ],
     "scripts": {
         "postinstall": "node -e \"const fs=require('fs');const path=require('path');const cp=require('child_process');const pkg=__dirname;const patchTarget=path.join(pkg,'node_modules','dom-to-pptx');const patchCli=path.join(pkg,'node_modules','patch-package','index.js');if(fs.existsSync(patchTarget)&&fs.existsSync(patchCli)){cp.execFileSync(process.execPath,[patchCli],{cwd:pkg,stdio:'inherit'});}try{fs.chmodSync(path.join(pkg,'bin','openswarm'),0o755)}catch(e){}\"",
-        "test:tui": "cd packages/openswarm-tui/packages/opencode && bun test --timeout 30000 test/cli/tui/session-error.test.ts",
+        "test:tui": "cd packages/openswarm-tui/packages/opencode && bun test --timeout 30000 test/agency-swarm/adapter.test.ts test/cli/tui/session-error.test.ts test/cli/tui/dialog-agent.test.tsx test/cli/tui/prompt-framework-mode.test.tsx",
         "test:tui:e2e": "cd packages/openswarm-tui/packages/opencode && bun test --timeout 180000 --max-concurrency=1 ../../e2e/agent-swarm-tui",
         "build:tui": "cd packages/openswarm-tui && bun install && cd packages/opencode && bun run script/build.ts --single --skip-install"
     },

@@ -1,12 +1,11 @@
-from agency_swarm import Agent, ModelSettings
+from agency_swarm import Agent
 from agency_swarm.tools import (
     PersistentShellTool,
     IPythonInterpreter,
 )
-from openai.types.shared import Reasoning
 from dotenv import load_dotenv
 
-from config import get_agent_model, is_openai_provider
+from config import get_agent_model, get_agent_model_settings
 from shared_tools import CopyFile, ExecuteTool, FindTools, ManageConnections, SearchTools, WebResearchSearch
 
 load_dotenv()
@@ -25,9 +24,7 @@ def create_virtual_assistant() -> Agent:
         files_folder="./files",
         tools_folder="./tools",
         model=get_agent_model(MODEL_ENV_VAR),
-        model_settings=ModelSettings(
-            reasoning=Reasoning(effort="medium", summary="auto") if is_openai_provider(MODEL_ENV_VAR) else None,
-        ),
+        model_settings=get_agent_model_settings(MODEL_ENV_VAR, reasoning_effort="medium"),
         tools=[
             WebResearchSearch,
             PersistentShellTool,

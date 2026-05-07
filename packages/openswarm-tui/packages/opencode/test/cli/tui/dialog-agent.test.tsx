@@ -4,6 +4,7 @@ import { testRender } from "@opentui/solid"
 import { RGBA } from "@opentui/core"
 import { AgencySwarmAdapter } from "../../../src/agency-swarm/adapter"
 import * as LocalContext from "../../../src/cli/cmd/tui/context/local"
+import * as OpenSwarmModelsContext from "../../../src/cli/cmd/tui/context/openswarm-models"
 import * as SDKContext from "../../../src/cli/cmd/tui/context/sdk"
 import * as SyncContext from "../../../src/cli/cmd/tui/context/sync"
 import * as DialogContext from "../../../src/cli/cmd/tui/ui/dialog"
@@ -65,6 +66,83 @@ describe("DialogAgent agency selection", () => {
       show: toastShow,
       error: mock(() => undefined),
       currentToast: null,
+    } as any)
+    spyOn(OpenSwarmModelsContext, "useOpenSwarmModels").mockReturnValue({
+      loading: () => false,
+      error: () => undefined,
+      state: () => ({
+        agency: "local-agency",
+        defaultModel: "subscription/codex",
+        allowCustom: true,
+        catalog: [],
+        agents: [
+          {
+            id: "ExampleAgent",
+            name: "ExampleAgent",
+            envKey: "EXAMPLE_AGENT_MODEL",
+            model: "subscription/codex",
+            modelLabel: "Codex subscription",
+            resolvedFrom: "agent",
+            isEntryPoint: true,
+            loaded: true,
+            available: true,
+            status: "available",
+          },
+          {
+            id: "ExampleAgent2",
+            name: "ExampleAgent2",
+            envKey: "EXAMPLE_AGENT_2_MODEL",
+            model: "subscription/claude",
+            modelLabel: "Claude Code subscription",
+            resolvedFrom: "agent",
+            isEntryPoint: false,
+            loaded: true,
+            available: true,
+            status: "available",
+          },
+        ],
+      }),
+      agentModel: (agent?: string) =>
+        agent === "ExampleAgent2"
+          ? {
+              id: "ExampleAgent2",
+              name: "ExampleAgent2",
+              envKey: "EXAMPLE_AGENT_2_MODEL",
+              model: "subscription/claude",
+              modelLabel: "Claude Code subscription",
+              resolvedFrom: "agent",
+              isEntryPoint: false,
+              loaded: true,
+              available: true,
+              status: "available",
+            }
+          : {
+              id: "ExampleAgent",
+              name: "ExampleAgent",
+              envKey: "EXAMPLE_AGENT_MODEL",
+              model: "subscription/codex",
+              modelLabel: "Codex subscription",
+              resolvedFrom: "agent",
+              isEntryPoint: true,
+              loaded: true,
+              available: true,
+              status: "available",
+            },
+      currentAgentModel: () => ({
+        id: "ExampleAgent",
+        name: "ExampleAgent",
+        envKey: "EXAMPLE_AGENT_MODEL",
+        model: "subscription/codex",
+        modelLabel: "Codex subscription",
+        resolvedFrom: "agent",
+        isEntryPoint: true,
+        loaded: true,
+        available: true,
+        status: "available",
+      }),
+      refresh: mock(() => undefined),
+      setAgentModel: mock(async () => undefined),
+      frameworkMode: () => true,
     } as any)
     spyOn(LocalContext, "useLocal").mockReturnValue({
       agent: {

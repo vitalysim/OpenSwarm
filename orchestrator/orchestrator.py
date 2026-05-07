@@ -1,8 +1,7 @@
-from agency_swarm import Agent, ModelSettings
-from openai.types.shared import Reasoning
+from agency_swarm import Agent
 from dotenv import load_dotenv
 
-from config import get_agent_model, is_openai_provider
+from config import get_agent_model, get_agent_model_settings
 
 load_dotenv()
 
@@ -18,9 +17,7 @@ def create_orchestrator() -> Agent:
         ),
         instructions="./instructions.md",
         model=get_agent_model(MODEL_ENV_VAR),
-        model_settings=ModelSettings(
-            reasoning=Reasoning(effort="medium", summary="auto") if is_openai_provider(MODEL_ENV_VAR) else None,
-        ),
+        model_settings=get_agent_model_settings(MODEL_ENV_VAR, reasoning_effort="medium"),
         conversation_starters=[
             "What can this agency do?",
             "Build a full launch package: research, slides, docs, and creative assets.",

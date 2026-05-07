@@ -1,12 +1,11 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
-from agency_swarm import Agent, ModelSettings, Agency
+from agency_swarm import Agent, Agency
 from agency_swarm.tools import IPythonInterpreter
-from openai.types.shared import Reasoning
 from shared_tools import CopyFile, WebResearchSearch
 
-from config import get_agent_model, is_openai_provider
+from config import get_agent_model, get_agent_model_settings
 
 _INSTRUCTIONS_PATH = Path(__file__).parent / "instructions.md"
 MODEL_ENV_VAR = "DOCS_AGENT_MODEL"
@@ -40,9 +39,7 @@ def create_docs_agent() -> Agent:
         files_folder="./files",
         tools_folder="./tools",
         model=get_agent_model(MODEL_ENV_VAR),
-        model_settings=ModelSettings(
-            reasoning=Reasoning(effort="medium", summary="auto") if is_openai_provider(MODEL_ENV_VAR) else None,
-        ),
+        model_settings=get_agent_model_settings(MODEL_ENV_VAR, reasoning_effort="medium"),
         tools=[WebResearchSearch, IPythonInterpreter, CopyFile],
         conversation_starters=[
             "Draft Week 34 client status report with a table and export as PDF.",

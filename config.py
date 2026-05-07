@@ -4,6 +4,9 @@ import os
 from subscription_models import is_subscription_model_id
 
 
+OPENAI_REASONING_SUMMARY = "auto"
+
+
 def get_configured_model_value(agent_env_var: str | None = None, fallback: str = "gpt-5.2") -> str:
     """Return the raw configured model id for an agent or the global default."""
     if agent_env_var:
@@ -20,7 +23,7 @@ def get_default_model(fallback: str = "gpt-5.2"):
 
 def get_agent_model(agent_env_var: str | None = None, fallback: str = "gpt-5.2"):
     """Return the configured model object/id for a specific agent."""
-    return _resolve(get_configured_model_value(agent_env_var, fallback=fallback))
+    return resolve_model_id(get_configured_model_value(agent_env_var, fallback=fallback))
 
 
 def is_openai_provider(agent_env_var: str | None = None, fallback: str = "gpt-5.2") -> bool:
@@ -32,7 +35,62 @@ def is_openai_provider(agent_env_var: str | None = None, fallback: str = "gpt-5.
     Subscription models are subprocess-backed and are not OpenAI API providers.
     """
     model = get_configured_model_value(agent_env_var, fallback=fallback)
-    return "/" not in model and not is_subscription_model_id(model)
+    return is_openai_model_value(model)
+
+
+def is_openai_model_value(model: str | None) -> bool:
+    """Return True when a raw model id is handled directly by the OpenAI API."""
+    return bool(model and "/" not in model and not is_subscription_model_id(model))
+
+
+def get_agent_model_settings(
+    agent_env_var: str | None = None,
+    *,
+    fallback: str = "gpt-5.2",
+    reasoning_effort: str | None = "medium",
+    verbosity: str | None = None,
+    truncation: str | None = None,
+):
+    """Return ModelSettings matching the configured model provider for an agent."""
+    model = get_configured_model_value(agent_env_var, fallback=fallback)
+    return build_model_settings_for_value(
+        model,
+        reasoning_effort=reasoning_effort,
+        verbosity=verbosity,
+        truncation=truncation,
+    )
+
+
+def build_model_settings_for_value(
+    model: str,
+    *,
+    reasoning_effort: str | None = "medium",
+    verbosity: str | None = None,
+    truncation: str | None = None,
+):
+    """Build Agency Swarm ModelSettings for a raw model id.
+
+    The OpenAI Responses API accepts reasoning and verbosity settings directly.
+    LiteLLM-routed models and subprocess-backed subscription models do not.
+    """
+    from agency_swarm import ModelSettings  # noqa: PLC0415
+    from openai.types.shared import Reasoning  # noqa: PLC0415
+
+    openai_model = is_openai_model_value(model)
+    return ModelSettings(
+        reasoning=(
+            Reasoning(effort=reasoning_effort, summary=OPENAI_REASONING_SUMMARY)
+            if openai_model and reasoning_effort
+            else None
+        ),
+        verbosity=verbosity if openai_model else None,
+        truncation=truncation,
+    )
+
+
+def resolve_model_id(model: str):
+    """Return an Agency Swarm-compatible model object/id for a raw model id."""
+    return _resolve(model)
 
 
 def _resolve(model: str):

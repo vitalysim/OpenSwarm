@@ -28,6 +28,7 @@ import { Filesystem } from "@/util"
 import { useLocal } from "@tui/context/local"
 import { tint, useTheme } from "@tui/context/theme"
 import { useAgencySwarmConnection } from "@tui/context/agency-swarm-connection"
+import { useOpenSwarmModels } from "@tui/context/openswarm-models"
 import { EmptyBorder, SplitBorder } from "@tui/component/border"
 import { useSDK } from "@tui/context/sdk"
 import { useRoute } from "@tui/context/route"
@@ -145,6 +146,7 @@ export function Prompt(props: PromptProps) {
   const keybind = useKeybind()
   const local = useLocal()
   const agencyConnection = useAgencySwarmConnection()
+  const openSwarmModels = useOpenSwarmModels()
   const args = useArgs()
   const sdk = useSDK()
   const editor = useEditorContext()
@@ -353,10 +355,21 @@ export function Prompt(props: PromptProps) {
     return Locale.truncateMiddle(file, Math.max(12, Math.min(48, Math.floor(dimensions().width / 3))))
   })
   const currentProviderLabel = createMemo(() => {
+    if (frameworkMode()) {
+      const current = openSwarmModels.currentAgentModel()
+      if (current) return current.modelLabel
+    }
     const current = local.model.current()
     const provider = local.model.parsed().provider
     if (!current) return provider
     return consoleManagedProviderLabel(sync.data.console_state.consoleManagedProviders, current.providerID, provider)
+  })
+  const currentModelLabel = createMemo(() => {
+    if (frameworkMode()) {
+      const current = openSwarmModels.currentAgentModel()
+      if (current) return current.model
+    }
+    return local.model.parsed().model
   })
   const hasRightContent = createMemo(() => Boolean(props.right))
 
@@ -1637,7 +1650,7 @@ export function Prompt(props: PromptProps) {
                             flexShrink={0}
                             fg={fadeColor(keybind.leader ? theme.textMuted : theme.text, modelMetaAlpha())}
                           >
-                            {local.model.parsed().model}
+                            {currentModelLabel()}
                           </text>
                           <text fg={fadeColor(theme.textMuted, modelMetaAlpha())}>{currentProviderLabel()}</text>
                           <Show when={showAgencyReconnect()}>

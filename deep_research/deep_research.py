@@ -1,10 +1,9 @@
-from agency_swarm import Agent, ModelSettings
+from agency_swarm import Agent
 from agency_swarm.tools import IPythonInterpreter
-from openai.types.shared import Reasoning
 from shared_tools import WebResearchSearch
 from virtual_assistant.tools.ScholarSearch import ScholarSearch
 
-from config import get_agent_model, is_openai_provider
+from config import get_agent_model, get_agent_model_settings
 
 
 MODEL_ENV_VAR = "DEEP_RESEARCH_MODEL"
@@ -18,9 +17,7 @@ def create_deep_research() -> Agent:
         files_folder="./files",
         tools=[WebResearchSearch, ScholarSearch, IPythonInterpreter],
         model=get_agent_model(MODEL_ENV_VAR),
-        model_settings=ModelSettings(
-            reasoning=Reasoning(effort="high", summary="auto") if is_openai_provider(MODEL_ENV_VAR) else None,
-        ),
+        model_settings=get_agent_model_settings(MODEL_ENV_VAR, reasoning_effort="high"),
         conversation_starters=[
             "Research the latest trends in renewable energy for 2026.",
             "Give me a comprehensive analysis of the AI agent market landscape.",

@@ -8,7 +8,6 @@ Auto-launched:  uv run python run.py  (when no provider key is found)
 import argparse
 import getpass
 import sys
-from pathlib import Path
 
 from dotenv import dotenv_values, set_key
 from rich import box
@@ -30,10 +29,9 @@ except ImportError:
     _HAS_QUESTIONARY = False
 
 from auth_registry import AUTH_DEFINITIONS, CATEGORY_LABELS, get_auth_statuses, list_definitions
+from model_control import AGENT_MODEL_ENV_VARS, ENV_PATH, MODEL_OPTIONS, SUBSCRIPTION_FIRST_MODELS
 
 console = Console()
-
-ENV_PATH = Path(__file__).parent / ".env"
 
 # ── questionary theme ─────────────────────────────────────────────────────────
 _QSTYLE = None
@@ -60,37 +58,6 @@ PROVIDERS = [
     }
     for item in list_definitions("model_api")
     if item.env_keys and item.default_model and item.setup_url
-]
-
-AGENT_MODEL_ENV_VARS = [
-    ("Orchestrator", "ORCHESTRATOR_MODEL"),
-    ("General Agent", "GENERAL_AGENT_MODEL"),
-    ("Deep Research Agent", "DEEP_RESEARCH_MODEL"),
-    ("Data Analyst", "DATA_ANALYST_MODEL"),
-    ("Docs Agent", "DOCS_AGENT_MODEL"),
-    ("Slides Agent", "SLIDES_AGENT_MODEL"),
-    ("Image Agent", "IMAGE_AGENT_MODEL"),
-    ("Video Agent", "VIDEO_AGENT_MODEL"),
-]
-
-SUBSCRIPTION_FIRST_MODELS = {
-    "DEFAULT_MODEL": "subscription/codex",
-    "ORCHESTRATOR_MODEL": "subscription/codex",
-    "GENERAL_AGENT_MODEL": "subscription/codex",
-    "DATA_ANALYST_MODEL": "subscription/codex",
-    "DEEP_RESEARCH_MODEL": "subscription/claude",
-    "DOCS_AGENT_MODEL": "subscription/claude",
-    "SLIDES_AGENT_MODEL": "subscription/claude",
-    "IMAGE_AGENT_MODEL": "subscription/claude",
-    "VIDEO_AGENT_MODEL": "subscription/claude",
-}
-
-MODEL_OPTIONS = [
-    ("Codex subscription", "subscription/codex"),
-    ("Claude Code subscription", "subscription/claude"),
-    ("OpenAI API", "gpt-5.2"),
-    ("Anthropic API", "litellm/anthropic/claude-sonnet-4-6"),
-    ("Google Gemini API", "litellm/gemini/gemini-3-flash"),
 ]
 
 # ── ui helpers ────────────────────────────────────────────────────────────────

@@ -20,6 +20,38 @@ export namespace AgencySwarmAdapter {
     isEntryPoint: boolean
   }
 
+  export type OpenSwarmAgentModelState = {
+    id: string
+    name: string
+    envKey: string
+    model: string
+    modelLabel: string
+    resolvedFrom: "agent" | "default" | string
+    isEntryPoint: boolean
+    loaded: boolean
+    available: boolean
+    status: string
+    statusDetail?: string
+  }
+
+  export type OpenSwarmModelCatalogItem = {
+    id: string
+    label: string
+    provider: string
+    source: string
+    available: boolean
+    status: string
+    statusDetail?: string
+  }
+
+  export type OpenSwarmModelState = {
+    agency: string
+    defaultModel: string
+    catalog: OpenSwarmModelCatalogItem[]
+    allowCustom: boolean
+    agents: OpenSwarmAgentModelState[]
+  }
+
   export type AgencyDescriptor = {
     id: string
     name: string
@@ -205,6 +237,67 @@ export namespace AgencySwarmAdapter {
     }
 
     return (await response.json()) as AgencyMetadata
+  }
+
+  export async function getOpenSwarmModels(input: {
+    baseURL: string
+    agency: string
+    token?: string | null
+    timeoutMs?: number
+    live?: boolean
+  }): Promise<OpenSwarmModelState> {
+    const live = input.live === false ? "false" : "true"
+    const url = joinURL(input.baseURL, `${input.agency}/openswarm/models?live=${live}`)
+    const response = await fetchWithTimeout(
+      url,
+      {
+        method: "GET",
+        headers: authHeaders(input.token),
+      },
+      input.timeoutMs,
+      "load OpenSwarm model state",
+    )
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "")
+      throw new Error(`OpenSwarm model state request failed (${response.status}): ${body || "No response body"}`)
+    }
+
+    return normalizeOpenSwarmModelState(await response.json())
+  }
+
+  export async function setOpenSwarmAgentModel(input: {
+    baseURL: string
+    agency: string
+    agent: string
+    model: string
+    token?: string | null
+    timeoutMs?: number
+  }): Promise<OpenSwarmModelState> {
+    const url = joinURL(input.baseURL, `${input.agency}/openswarm/agent-model`)
+    const response = await fetchWithTimeout(
+      url,
+      {
+        method: "POST",
+        headers: {
+          ...authHeaders(input.token),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          agent: input.agent,
+          model: input.model,
+        }),
+      },
+      input.timeoutMs,
+      "set OpenSwarm agent model",
+    )
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "")
+      throw new Error(`OpenSwarm model update failed (${response.status}): ${body || "No response body"}`)
+    }
+
+    return normalizeOpenSwarmModelState(await response.json())
   }
 
   export async function* streamRun(input: StreamRunInput): AsyncGenerator<StreamFrame> {
@@ -510,6 +603,61 @@ export namespace AgencySwarmAdapter {
     }
 
     return Array.from(result.values()).sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  function normalizeOpenSwarmModelState(value: unknown): OpenSwarmModelState {
+    const record = asRecord(value) ?? {}
+    const agents = asArray(record["agents"])
+      .map(normalizeOpenSwarmAgent)
+      .filter((item): item is OpenSwarmAgentModelState => item !== undefined)
+    const catalog = asArray(record["catalog"])
+      .map(normalizeOpenSwarmCatalogItem)
+      .filter((item): item is OpenSwarmModelCatalogItem => item !== undefined)
+
+    return {
+      agency: asString(record["agency"]) ?? "",
+      defaultModel: asString(record["defaultModel"]) ?? "",
+      catalog,
+      allowCustom: asBoolean(record["allowCustom"]) !== false,
+      agents,
+    }
+  }
+
+  function normalizeOpenSwarmAgent(value: unknown): OpenSwarmAgentModelState | undefined {
+    const record = asRecord(value)
+    if (!record) return undefined
+    const name = asString(record["name"]) ?? asString(record["id"])
+    const model = asString(record["model"])
+    if (!name || !model) return undefined
+    return {
+      id: asString(record["id"]) ?? name,
+      name,
+      envKey: asString(record["envKey"]) ?? "",
+      model,
+      modelLabel: asString(record["modelLabel"]) ?? model,
+      resolvedFrom: asString(record["resolvedFrom"]) ?? "agent",
+      isEntryPoint: asBoolean(record["isEntryPoint"]) === true,
+      loaded: asBoolean(record["loaded"]) !== false,
+      available: asBoolean(record["available"]) !== false,
+      status: asString(record["status"]) ?? "unknown",
+      statusDetail: asString(record["statusDetail"]),
+    }
+  }
+
+  function normalizeOpenSwarmCatalogItem(value: unknown): OpenSwarmModelCatalogItem | undefined {
+    const record = asRecord(value)
+    if (!record) return undefined
+    const id = asString(record["id"])
+    if (!id) return undefined
+    return {
+      id,
+      label: asString(record["label"]) ?? id,
+      provider: asString(record["provider"]) ?? "custom",
+      source: asString(record["source"]) ?? "custom",
+      available: asBoolean(record["available"]) !== false,
+      status: asString(record["status"]) ?? "unknown",
+      statusDetail: asString(record["statusDetail"]),
+    }
   }
 
   function normalizeClientConfig(value: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
