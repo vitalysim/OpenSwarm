@@ -10,6 +10,7 @@
         "bin/",
         "run_utils.py",
         "onboard.py",
+        "run.py",
         "swarm.py",
         "config.py",
         "helpers.py",
