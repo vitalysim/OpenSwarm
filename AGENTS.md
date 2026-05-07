@@ -58,6 +58,8 @@ virtual_assistant/
   tools/
 
 shared_tools/             ← tools available to all agents (Composio integrations, etc.)
+
+packages/openswarm-tui/   ← vendored AgentSwarm/OpenCode TUI source controlled by this repo
 ```
 
 ---
@@ -127,6 +129,7 @@ The coding agent will read this file, understand the structure, and make the rig
   - `subscription/claude` uses the local Claude Code login
 - Web research uses `WebResearchSearch`, which can use Codex/Claude Code subscription search first and OpenAI/SearchAPI as fallback (`WEB_SEARCH_MODE`, `WEB_SEARCH_PROVIDER_ORDER`, `WEB_SEARCH_DEEP_MIX`)
 - Check model/API/service authentication with `uv run python onboard.py --status`
+- The terminal UI fork lives in `packages/openswarm-tui`. Build/release assets are named `openswarm-tui-*`, and local downloaded binaries must not be committed.
 
 Before proceeding with agent creation, please read the following instructions carefully:
 

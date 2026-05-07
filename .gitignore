@@ -10,6 +10,18 @@ agency-darwin-x64
 agency-darwin-arm64
 agency-linux-x64
 agency-linux-arm64
+agentswarm-windows-x64.exe
+agentswarm-windows-arm64.exe
+agentswarm-darwin-x64
+agentswarm-darwin-arm64
+agentswarm-linux-x64
+agentswarm-linux-arm64
+openswarm-tui-windows-x64.exe
+openswarm-tui-windows-arm64.exe
+openswarm-tui-darwin-x64
+openswarm-tui-darwin-arm64
+openswarm-tui-linux-x64
+openswarm-tui-linux-arm64
 
 # Agency Swarm
 .agency_swarm_chats/
@@ -184,3 +196,12 @@ cython_debug/
 .agency_swarm/
 third_party/
 .claude/
+
+# Keep the vendored TUI source complete even though this repo has broad
+# Python-oriented ignores for directory names like env/, instance/, and lib/.
+!packages/openswarm-tui/**/env/
+!packages/openswarm-tui/**/env/**
+!packages/openswarm-tui/**/instance/
+!packages/openswarm-tui/**/instance/**
+!packages/openswarm-tui/**/lib/
+!packages/openswarm-tui/**/lib/**

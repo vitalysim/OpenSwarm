@@ -165,6 +165,23 @@ docker-compose up --build
 uv run python server.py    # Runs on localhost:8080
 ```
 
+**OpenSwarm TUI fork:**
+
+This repo vendors the AgentSwarm/OpenCode TUI source under
+`packages/openswarm-tui` so the auth flow and release binaries are controlled
+from this project. The Python launcher passes backend auth status to the TUI
+with `OPENSWARM_AUTH_MODE=backend`, which lets `/auth` show Codex, Claude Code,
+API keys, and service status without requiring the native OpenAI browser login.
+
+```bash
+npm run test:tui
+npm run build:tui
+```
+
+Tagged releases build `openswarm-tui-*` binaries from the vendored source via
+`.github/workflows/build-tui.yml`. Set `OPENSWARM_TUI_URL` to test a custom
+binary download URL locally.
+
 ---
 
 ## 📺 Learn More

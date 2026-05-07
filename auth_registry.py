@@ -200,6 +200,28 @@ def get_auth_statuses(*, live: bool = True) -> list[AuthStatus]:
     return [check_auth_status(item, live=live) for item in AUTH_DEFINITIONS]
 
 
+def build_tui_auth_status_payload(*, live: bool = True) -> list[dict[str, object]]:
+    """Return a redacted auth-status payload for the OpenSwarm TUI."""
+    return [_tui_auth_status_item(status) for status in get_auth_statuses(live=live)]
+
+
+def _tui_auth_status_item(status: AuthStatus) -> dict[str, object]:
+    item: dict[str, object] = {
+        "id": status.id,
+        "name": status.name,
+        "category": status.category,
+        "state": status.state,
+        "detail": status.detail,
+        "capabilities": list(status.capabilities),
+        "envKeys": list(status.env_keys),
+    }
+    if status.setup_hint:
+        item["setupHint"] = status.setup_hint
+    if status.default_model:
+        item["defaultModel"] = status.default_model
+    return item
+
+
 def build_status_summary(*, live: bool = True) -> str:
     lines: list[str] = ["Authentication status:"]
     statuses = get_auth_statuses(live=live)

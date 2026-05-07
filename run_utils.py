@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import subprocess
 import shutil
 import tempfile
@@ -11,10 +12,10 @@ def _resolve_bin_name() -> str:
     machine = platform.machine().lower()
     arch = "arm64" if machine in ("arm64", "aarch64") else "x64"
     if sys.platform == "win32":
-        return f"agentswarm-windows-{arch}.exe"
+        return f"openswarm-tui-windows-{arch}.exe"
     if sys.platform == "darwin":
-        return f"agentswarm-darwin-{arch}"
-    return f"agentswarm-linux-{arch}"
+        return f"openswarm-tui-darwin-{arch}"
+    return f"openswarm-tui-linux-{arch}"
 
 
 def _ensure_node_playwright_browsers(repo: Path) -> None:
@@ -189,12 +190,14 @@ def _bootstrap() -> None:
         except Exception:
             pass
 
-    # Download the OpenSwarm TUI binary from GitHub Releases if missing.
+    # Download the OpenSwarm-controlled TUI binary from GitHub Releases if missing.
     _bin_name = _resolve_bin_name()
     _bin_path = _repo / _bin_name
     if not _bin_path.exists():
         import urllib.request
-        _bin_url = f"https://github.com/VRSEN/OpenSwarm/releases/latest/download/{_bin_name}"
+        _bin_url = os.getenv("OPENSWARM_TUI_URL", "").strip() or (
+            f"https://github.com/vitalysim/OpenSwarm/releases/latest/download/{_bin_name}"
+        )
         print("Downloading OpenSwarm TUI, please wait…\n")
         try:
             urllib.request.urlretrieve(_bin_url, str(_bin_path))
@@ -210,6 +213,17 @@ def build_integration_summary() -> str:
     from auth_registry import build_status_summary
 
     return build_status_summary(live=True)
+
+
+def _configure_tui_backend_auth_env() -> None:
+    from auth_registry import build_tui_auth_status_payload
+
+    os.environ["OPENSWARM_AUTH_MODE"] = "backend"
+    os.environ["OPENSWARM_AUTH_STATUS_JSON"] = json.dumps(
+        build_tui_auth_status_payload(live=True),
+        ensure_ascii=True,
+        separators=(",", ":"),
+    )
 
 
 def _configure_demo_console() -> None:
@@ -310,6 +324,7 @@ def main() -> None:
 
         print(build_integration_summary())
         print()
+        _configure_tui_backend_auth_env()
 
         agency = create_agency()
         agency.tui(show_reasoning=True, reload=False)

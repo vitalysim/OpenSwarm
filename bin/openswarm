@@ -29,13 +29,15 @@ function resolveAgentswarm(startDir) {
 }
 
 function getBinaryName() {
-  return process.platform === 'win32' ? `agentswarm-windows-${os.arch() === 'arm64' ? 'arm64' : 'x64'}.exe` : `agentswarm-${process.platform === 'darwin' ? 'darwin' : 'linux'}-${os.arch() === 'arm64' ? 'arm64' : 'x64'}`
+  const arch = os.arch() === 'arm64' ? 'arm64' : 'x64'
+  if (process.platform === 'win32') return `openswarm-tui-windows-${arch}.exe`
+  return `openswarm-tui-${process.platform === 'darwin' ? 'darwin' : 'linux'}-${arch}`
 }
 
 function getDownloadUrl(binaryName) {
   const explicit = process.env.OPENSWARM_TUI_URL && process.env.OPENSWARM_TUI_URL.trim()
   if (explicit) return explicit
-  return `https://github.com/VRSEN/OpenSwarm/releases/latest/download/${binaryName}`
+  return `https://github.com/vitalysim/OpenSwarm/releases/latest/download/${binaryName}`
 }
 
 function resolveCustomBinary(binaryPath) {
@@ -173,6 +175,8 @@ async function main() {
   const env = {
     ...process.env,
     AGENTSWARM_LAUNCHER: process.env.AGENTSWARM_LAUNCHER || '1',
+    OPENSWARM_AUTH_MODE: process.env.OPENSWARM_AUTH_MODE || 'backend',
+    OPENSWARM_AUTH_STATUS_JSON: process.env.OPENSWARM_AUTH_STATUS_JSON || '[]',
     PYTHONUTF8: process.env.PYTHONUTF8 || '1',
     PYTHONIOENCODING: process.env.PYTHONIOENCODING || 'utf-8',
   }

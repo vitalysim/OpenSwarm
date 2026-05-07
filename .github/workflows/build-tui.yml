@@ -27,10 +27,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          repository: ArtemShatokhin/agentswarm-cli
-          ref: aaaa4557178e54ad88ec839345d411cf7cace76e
-          path: agentswarm-cli
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -38,31 +34,31 @@ jobs:
           bun-version: "1.3.11"
 
       - name: Install dependencies
-        working-directory: agentswarm-cli
+        working-directory: packages/openswarm-tui
         run: bun install
 
       - name: Build binary
-        working-directory: agentswarm-cli/packages/opencode
+        working-directory: packages/openswarm-tui/packages/opencode
         run: bun run script/build.ts --single --skip-install
 
       - name: Rename binary (Unix)
         if: matrix.platform != 'windows'
         run: |
-          mv agentswarm-cli/packages/opencode/dist/agentswarm-cli-${{ matrix.platform }}-${{ matrix.arch }}/bin/agentswarm \
-             agentswarm-${{ matrix.platform }}-${{ matrix.arch }}
+          mv packages/openswarm-tui/packages/opencode/dist/agentswarm-cli-${{ matrix.platform }}-${{ matrix.arch }}/bin/agentswarm \
+             openswarm-tui-${{ matrix.platform }}-${{ matrix.arch }}
 
       - name: Rename binary (Windows)
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
-          Move-Item agentswarm-cli/packages/opencode/dist/agentswarm-cli-${{ matrix.platform }}-${{ matrix.arch }}/bin/agentswarm.exe `
-            agentswarm-${{ matrix.platform }}-${{ matrix.arch }}.exe
+          Move-Item packages/openswarm-tui/packages/opencode/dist/agentswarm-cli-${{ matrix.platform }}-${{ matrix.arch }}/bin/agentswarm.exe `
+            openswarm-tui-${{ matrix.platform }}-${{ matrix.arch }}.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: agentswarm-${{ matrix.platform }}-${{ matrix.arch }}
-          path: agentswarm-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.platform == 'windows' && '.exe' || '' }}
+          name: openswarm-tui-${{ matrix.platform }}-${{ matrix.arch }}
+          path: openswarm-tui-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.platform == 'windows' && '.exe' || '' }}
           if-no-files-found: error
 
   release:
