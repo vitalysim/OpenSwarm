@@ -1,0 +1,35 @@
+from pathlib import Path
+
+from agency_swarm import Agent
+from shared_tools import WebResearchSearch
+from security_research_tools import (
+    LookupCISAKEV,
+    LookupEPSS,
+    LookupMitreKnowledge,
+    ManageSecurityResearchNote,
+    ManageSecurityResearchResource,
+)
+
+from config import get_agent_model, get_agent_model_settings
+
+
+MODEL_ENV_VAR = "THREAT_INTELLIGENCE_ANALYST_MODEL"
+_CURRENT_DIR = Path(__file__).parent
+
+
+def create_threat_intelligence_analyst() -> Agent:
+    return Agent(
+        name="Threat Intelligence Analyst",
+        description="Analyzes threat actor activity, exploitation signals, campaigns, TTPs, and public intelligence sources.",
+        instructions=str(_CURRENT_DIR / "instructions.md"),
+        model=get_agent_model(MODEL_ENV_VAR),
+        model_settings=get_agent_model_settings(MODEL_ENV_VAR, reasoning_effort="high", truncation="auto"),
+        tools=[
+            WebResearchSearch,
+            LookupCISAKEV,
+            LookupEPSS,
+            LookupMitreKnowledge,
+            ManageSecurityResearchNote,
+            ManageSecurityResearchResource,
+        ],
+    )

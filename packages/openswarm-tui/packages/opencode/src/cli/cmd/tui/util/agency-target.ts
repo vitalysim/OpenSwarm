@@ -47,6 +47,18 @@ export type AgencyTargetSelection = {
   label: string
 }
 
+export type AgencyRouteSelection =
+  | {
+      ok: true
+      agency: AgencySwarmAdapter.AgencyDescriptor
+      implicit: boolean
+    }
+  | {
+      ok: false
+      reason: "none" | "ambiguous" | "missing"
+      message: string
+    }
+
 export function readAgencyProviderOptions(input: {
   configuredProvider?: { options?: Record<string, unknown> }
   connectedProvider?: { key?: string }
@@ -109,6 +121,49 @@ export function resolveAgencyTargetSelection(input: {
     agencyLabel: agency.name,
     recipientAgent: recipient.id,
     label: recipient.name,
+  }
+}
+
+export function resolveAgencyRouteSelection(input: {
+  agencies: AgencySwarmAdapter.AgencyDescriptor[]
+  configuredAgency?: string
+}): AgencyRouteSelection {
+  if (input.configuredAgency) {
+    const agency = input.agencies.find((item) => item.id === input.configuredAgency)
+    if (agency) {
+      return {
+        ok: true,
+        agency,
+        implicit: false,
+      }
+    }
+    return {
+      ok: false,
+      reason: "missing",
+      message: `Configured swarm ${input.configuredAgency} was not discovered. Choose an available swarm.`,
+    }
+  }
+
+  if (input.agencies.length === 1) {
+    return {
+      ok: true,
+      agency: input.agencies[0]!,
+      implicit: true,
+    }
+  }
+
+  if (input.agencies.length > 1) {
+    return {
+      ok: false,
+      reason: "ambiguous",
+      message: "Multiple swarms were discovered. Choose a swarm before managing models.",
+    }
+  }
+
+  return {
+    ok: false,
+    reason: "none",
+    message: "No agency-swarm swarm is available.",
   }
 }
 

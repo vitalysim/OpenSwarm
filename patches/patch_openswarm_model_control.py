@@ -6,7 +6,7 @@ from typing import Any, Callable
 
 from pydantic import BaseModel
 
-from model_control import build_model_state, set_agent_model
+from model_control import build_model_state, get_agent_model_definitions, set_agent_model
 
 
 class SetAgentModelRequest(BaseModel):
@@ -17,22 +17,35 @@ class SetAgentModelRequest(BaseModel):
 def install_live_model_control_routes(app: Any, agency: Any, *, agency_id: str | None = None) -> None:
     """Install OpenSwarm model-control routes backed by a live Agency instance."""
     route_agency_id = agency_id or getattr(agency, "name", None) or "agency"
+    definitions = get_agent_model_definitions(agency=agency, agency_id=route_agency_id)
     _install_routes(
         app,
         route_agency_id=route_agency_id,
         agency_factory=lambda: agency,
         persist=True,
+        definitions=definitions,
     )
 
 
-def install_factory_model_control_routes(app: Any, agencies: dict[str, Callable[..., Any]]) -> None:
+def install_factory_model_control_routes(
+    app: Any,
+    agencies: dict[str, Callable[..., Any]],
+    *,
+    route_definitions: dict[str, tuple[Any, ...]] | None = None,
+) -> None:
     """Install model-control routes backed by Agency factory functions."""
     for route_agency_id, agency_factory in agencies.items():
+        definitions = (
+            route_definitions.get(route_agency_id)
+            if route_definitions
+            else get_agent_model_definitions(agency_id=route_agency_id)
+        )
         _install_routes(
             app,
             route_agency_id=route_agency_id,
             agency_factory=lambda factory=agency_factory: factory(load_threads_callback=lambda: []),
             persist=True,
+            definitions=definitions,
         )
 
 
@@ -44,9 +57,15 @@ def apply_openswarm_model_control_patch() -> None:
         return
 
     def _start_server(agency: Any, capture=None):
+        from swarm_registry import get_registered_agency_factories, is_registered_agency  # noqa: PLC0415
+
         port = cli._port()
+        if is_registered_agency(agency):
+            agencies = get_registered_agency_factories(available_only=True)
+        else:
+            agencies = cli.build_fastapi_agencies(agency)
         app = cli.run_fastapi(
-            agencies=cli.build_fastapi_agencies(agency),
+            agencies=agencies,
             host=cli._HOST,
             port=port,
             server_url=f"http://{cli._HOST}:{port}",
@@ -56,7 +75,10 @@ def apply_openswarm_model_control_patch() -> None:
         if app is None:
             raise RuntimeError("Failed to build the Agency Swarm FastAPI app for Agent Swarm CLI.")
 
-        install_live_model_control_routes(app, agency, agency_id=cli._agency_id(agency))
+        if is_registered_agency(agency):
+            install_factory_model_control_routes(app, agencies)
+        else:
+            install_live_model_control_routes(app, agency, agency_id=cli._agency_id(agency))
 
         import threading  # noqa: PLC0415
         import uvicorn  # noqa: PLC0415
@@ -87,6 +109,7 @@ def _install_routes(
     route_agency_id: str,
     agency_factory: Callable[[], Any],
     persist: bool,
+    definitions: tuple[Any, ...],
 ) -> None:
     installed = getattr(app.state, "openswarm_model_control_routes", set())
     if route_agency_id in installed:
@@ -95,7 +118,12 @@ def _install_routes(
     prefix = f"/{route_agency_id}/openswarm"
 
     async def get_models(live: bool = True) -> dict[str, Any]:
-        return build_model_state(agency_factory(), live=live)
+        return build_model_state(
+            agency_factory(),
+            live=live,
+            agency_id=route_agency_id,
+            definitions=definitions,
+        )
 
     async def post_agent_model(request: SetAgentModelRequest) -> dict[str, Any]:
         return set_agent_model(
@@ -103,6 +131,8 @@ def _install_routes(
             agent_name=request.agent,
             model_id=request.model,
             persist=persist,
+            agency_id=route_agency_id,
+            definitions=definitions,
         )
 
     app.add_api_route(f"{prefix}/models", get_models, methods=["GET"], tags=["openswarm"])

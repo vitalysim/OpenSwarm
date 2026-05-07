@@ -149,6 +149,18 @@ export function DialogAgent() {
     }
 
     const agencies = discovered?.agencies ?? []
+    if (agencies.length > 1 && !providerOptions().agency) {
+      result.push({
+        value: {
+          kind: "agency",
+          agency: "__choose__",
+        },
+        title: "Choose a swarm",
+        description: "Multiple swarms were discovered. Select one before managing agent models.",
+        disabled: true,
+        category: "agency-swarm",
+      })
+    }
     for (const agency of agencies) {
       const category = `Swarm: ${agency.name}`
       const entry = agency.agents.find((agent) => agent.isEntryPoint) ?? agency.agents[0]
@@ -164,7 +176,10 @@ export function DialogAgent() {
         category,
       })
       for (const agent of agency.agents) {
-        const model = openSwarmModels.agentModel(agent.id) ?? openSwarmModels.agentModel(agent.name)
+        const model =
+          openSwarmModels.routeAgency?.() === agency.id
+            ? (openSwarmModels.agentModel(agent.id) ?? openSwarmModels.agentModel(agent.name))
+            : undefined
         result.push({
           value: {
             kind: "recipient",
@@ -179,14 +194,16 @@ export function DialogAgent() {
     }
 
     const modelState = openSwarmModels.state()
-    if (agencies.length > 0 && (modelState || openSwarmModels.loading())) {
+    if (agencies.length > 0 && providerOptions().agency && (modelState || openSwarmModels.loading())) {
       const currentModel = openSwarmModels.currentAgentModel()
       result.push({
         value: {
           kind: "manage_models",
         },
         title: "Manage agent models",
-        description: currentModel ? `Current: ${currentModel.name} uses ${currentModel.modelLabel}` : "Loading models...",
+        description: currentModel
+          ? `Current: ${currentModel.name} uses ${currentModel.modelLabel}`
+          : "Loading models...",
         category: "Actions",
       })
     }
@@ -383,7 +400,7 @@ function DialogOpenSwarmAgentModels() {
 
   return (
     <DialogSelect
-      title="Agent models"
+      title={models.state()?.agency ? `Agent models - ${models.state()?.agency}` : "Agent models"}
       options={options()}
       onSelect={(option) => {
         dialog.replace(() => <DialogOpenSwarmModelPicker agent={option.value.agent} />)

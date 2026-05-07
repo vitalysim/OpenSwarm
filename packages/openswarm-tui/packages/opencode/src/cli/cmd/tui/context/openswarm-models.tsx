@@ -4,7 +4,7 @@ import { createSimpleContext } from "./helper"
 import { useLocal } from "./local"
 import { useSync } from "./sync"
 import { isAgencySwarmFrameworkMode } from "../session-error"
-import { readAgencyProviderOptions } from "../util/agency-target"
+import { readAgencyProviderOptions, resolveAgencyRouteSelection } from "../util/agency-target"
 
 type ModelResource = {
   routeAgency: string
@@ -52,7 +52,17 @@ export const { use: useOpenSwarmModels, provider: OpenSwarmModelsProvider } = cr
           token: input.token,
           timeoutMs: input.timeoutMs,
         })
-        routeAgency = discovered.agencies[0]?.id
+        const selection = resolveAgencyRouteSelection({
+          agencies: discovered.agencies,
+          configuredAgency: input.agency,
+        })
+        if (!selection.ok) {
+          setLastError(new Error(selection.message))
+          return {
+            routeAgency: "",
+          }
+        }
+        routeAgency = selection.agency.id
       }
       if (!routeAgency) {
         setLastError(new Error("No agency-swarm agency is available"))
@@ -82,6 +92,7 @@ export const { use: useOpenSwarmModels, provider: OpenSwarmModelsProvider } = cr
     })
 
     const state = createMemo(() => resource()?.state)
+    const routeAgency = createMemo(() => resource()?.routeAgency)
 
     function agentModel(agentIDOrName?: string | null) {
       const modelState = state()
@@ -122,6 +133,7 @@ export const { use: useOpenSwarmModels, provider: OpenSwarmModelsProvider } = cr
       frameworkMode,
       loading: createMemo(() => resource.loading),
       error: createMemo(() => lastError()),
+      routeAgency,
       state,
       agentModel,
       currentAgentModel,

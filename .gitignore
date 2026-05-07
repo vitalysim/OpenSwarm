@@ -197,6 +197,14 @@ cython_debug/
 third_party/
 .claude/
 
+# Security Research Swarm runtime workspace
+research_workspace/security/notes/
+research_workspace/security/resources/
+research_workspace/security/progress/
+research_workspace/security/scratch/
+research_workspace/security/experiments/
+research_workspace/security/outputs/
+
 # Keep the vendored TUI source complete even though this repo has broad
 # Python-oriented ignores for directory names like env/, instance/, and lib/.
 !packages/openswarm-tui/**/env/

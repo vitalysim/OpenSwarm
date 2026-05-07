@@ -75,6 +75,8 @@ def create_agency(load_threads_callback=None):
         shared_instructions="shared_instructions.md",
         load_threads_callback=load_threads_callback,
     )
+    agency.openswarm_swarm_id = "open-swarm"
+    agency.openswarm_swarm_name = "OpenSwarm"
 
     return agency
 

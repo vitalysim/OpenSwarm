@@ -98,6 +98,7 @@ describe("Agent Swarm terminal TUI e2e", () => {
 
     await currentTui.waitForText("Agency Swarm", tuiReadyTimeoutMs)
     currentTui.write("/agents\r")
+    await currentTui.waitForText("Select swarm")
     const screen = await currentTui.waitForText("Live QA Agency")
 
     expect(screen).toContain("Entry Agent")
@@ -116,6 +117,7 @@ describe("Agent Swarm terminal TUI e2e", () => {
 
     await currentTui.waitForText("Agency Swarm", tuiReadyTimeoutMs)
     currentTui.write("/agents\r")
+    await currentTui.waitForText("Select swarm")
     const screen = await currentTui.waitForText("TuiDemoAgency")
 
     expect(screen).toContain("Select swarm")
@@ -500,6 +502,7 @@ async function selectRunTarget(tui: TuiProcess, query: string, successMessage: s
 
 async function selectCurrentSwarm(tui: TuiProcess) {
   tui.write("/agents\r")
+  await tui.waitForText("Select swarm")
   await tui.waitForText("TuiDemoAgency")
   tui.write("\x1b[A\x1b[A\r")
   await tui.waitForText("Selected swarm TuiDemoAgency", tuiInteractionTimeoutMs)

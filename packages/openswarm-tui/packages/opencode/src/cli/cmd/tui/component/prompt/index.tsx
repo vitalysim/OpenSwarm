@@ -63,6 +63,7 @@ import { useKV } from "../../context/kv"
 import { createFadeIn } from "../../util/signal"
 import { useTextareaKeybindings } from "../textarea-keybindings"
 import { DialogSkill } from "../dialog-skill"
+import { DialogAgent } from "../dialog-agent"
 import { CONSOLE_MANAGED_ICON, consoleManagedProviderLabel } from "@tui/util/provider-origin"
 import { AgencySwarmAdapter } from "@/agency-swarm/adapter"
 import { AgencySwarmRunSession } from "@/agency-swarm/run-session"
@@ -80,6 +81,7 @@ import {
   readAgencyProviderOptions,
   resolveAgencyHandoffRecipientFromParts,
   resolveAgencyHandoffRecipientFromMessages,
+  resolveAgencyRouteSelection,
   resolveAgencyTargetSelection,
   shouldAdoptAgencyHandoffRecipient,
 } from "../../util/agency-target"
@@ -197,7 +199,6 @@ export function Prompt(props: PromptProps) {
   const frameworkRecipientDiscoveryInput = createMemo(() => {
     if (!frameworkMode()) return undefined
     const options = agencyProviderOptions()
-    if (!options.recipientAgent) return undefined
     return {
       baseURL: options.baseURL,
       token: options.token,
@@ -241,6 +242,17 @@ export function Prompt(props: PromptProps) {
     if (handoff && handoff.sessionID === props.sessionID) return handoff
     return sessionHandoffRecipient()
   })
+  const frameworkSwarmLabel = createMemo(() => {
+    if (!frameworkMode()) return undefined
+    const options = agencyProviderOptions()
+    const selection = resolveAgencyRouteSelection({
+      agencies: frameworkRecipientDiscovery(),
+      configuredAgency: options.agency,
+    })
+    if (selection.ok) return selection.agency.name
+    if (selection.reason === "ambiguous") return "Choose swarm"
+    return options.agency
+  })
   const frameworkRecipientLabel = createMemo(() => {
     if (!frameworkMode()) return undefined
     const options = agencyProviderOptions()
@@ -256,7 +268,17 @@ export function Prompt(props: PromptProps) {
       configuredAgency: options.agency,
       configuredRecipient: options.recipientAgent,
     })
-    return selection?.label ?? options.recipientAgent
+    if (selection?.recipientAgent) return selection.label
+    if (selection?.agency) return "Entry point"
+    if (!options.agency && frameworkRecipientDiscovery().length > 1) return "No recipient"
+    return options.recipientAgent
+  })
+  const frameworkTargetLabel = createMemo(() => {
+    const swarm = frameworkSwarmLabel()
+    const recipient = frameworkRecipientLabel()
+    if (!swarm) return recipient
+    if (!recipient) return swarm
+    return `${swarm} / ${recipient}`
   })
 
   createEffect(
@@ -358,6 +380,7 @@ export function Prompt(props: PromptProps) {
     if (frameworkMode()) {
       const current = openSwarmModels.currentAgentModel()
       if (current) return current.modelLabel
+      return "agency-swarm"
     }
     const current = local.model.current()
     const provider = local.model.parsed().provider
@@ -368,6 +391,8 @@ export function Prompt(props: PromptProps) {
     if (frameworkMode()) {
       const current = openSwarmModels.currentAgentModel()
       if (current) return current.model
+      if (!agencyProviderOptions().agency && frameworkRecipientDiscovery().length > 1) return "select swarm"
+      if (openSwarmModels.loading()) return "loading model"
     }
     return local.model.parsed().model
   })
@@ -1049,6 +1074,21 @@ export function Prompt(props: PromptProps) {
       return
     }
 
+    if (
+      currentMode !== "shell" &&
+      frameworkMode() &&
+      !agencyProviderOptions().agency &&
+      frameworkRecipientDiscovery().length > 1
+    ) {
+      toast.show({
+        variant: "warning",
+        message: "Choose a swarm before sending a message.",
+        duration: 4000,
+      })
+      dialog.replace(() => <DialogAgent />)
+      return
+    }
+
     const workspaceSession = props.sessionID ? sync.session.get(props.sessionID) : undefined
     const workspaceID = workspaceSession?.workspaceID
     const workspaceStatus = workspaceID ? (project.workspace.status(workspaceID) ?? "error") : undefined
@@ -1639,7 +1679,7 @@ export function Prompt(props: PromptProps) {
                           ? "Shell"
                           : displayRunOnlyAgentLabel({
                               frameworkMode: frameworkMode(),
-                              recipientLabel: frameworkRecipientLabel(),
+                              recipientLabel: frameworkTargetLabel(),
                               localAgentName: effectiveAgentName(),
                             })}
                       </text>

@@ -17,9 +17,13 @@ Typical local run:
 2. `swarm.py` builds the Agency Swarm graph and applies local compatibility
    patches.
 3. `Agency.tui(...)` starts a local FastAPI bridge.
-4. The vendored TUI binary connects to that bridge.
-5. User prompts stream through `/{agency}/get_response_stream`.
-6. Agency Swarm routes the task to the orchestrator or selected specialist.
+4. `patches/patch_openswarm_model_control.py` expands that bridge to all
+   registered swarms when the launched agency is an OpenSwarm registry agency.
+5. The vendored TUI binary connects to that bridge and lets the user choose a
+   swarm plus recipient agent.
+6. User prompts stream through `/{agency}/get_response_stream`.
+7. Agency Swarm routes the task to the selected swarm's orchestrator or
+   specialist.
 
 ## Core Python Entry Points
 
@@ -28,6 +32,7 @@ Typical local run:
 | `run.py` | Compatibility entry point for local runs. Delegates to `run_utils.py`. |
 | `run_utils.py` | Launcher logic, setup checks, TUI binary handling, and runtime bootstrap. |
 | `swarm.py` | Main agency graph: imports agents, creates them, and defines handoff/send-message flows. |
+| `swarm_registry.py` | Registry of named swarms, factories, availability checks, and the Security Research Swarm graph. |
 | `server.py` | FastAPI server entry point for API deployment on port `8080`. |
 | `onboard.py` | Interactive setup and `--status` command for auth/service state. |
 | `config.py` | Model resolution and model settings helpers shared by all agents. |
@@ -35,7 +40,20 @@ Typical local run:
 | `auth_registry.py` | Single source of truth for subscriptions, API keys, services, and status checks. |
 | `subscription_models.py` | OpenAI Agents SDK model adapter for local Codex CLI and Claude Code subscription auth. |
 
-## Agent Graph
+## Swarms
+
+OpenSwarm is now registry-driven. `swarm_registry.py` defines these swarms:
+
+| Swarm ID | Display name | Purpose |
+|---|---|---|
+| `open-swarm` | OpenSwarm | General-purpose multi-agent workbench. |
+| `security-research` | Security Research | Security research, threat intel, vulnerability analysis, labs, blogs, and visuals. |
+
+`swarm.py:create_agency()` remains the compatibility factory for the original
+OpenSwarm graph. New swarms should be added to `swarm_registry.py`, then given
+their own model definitions in `model_control.py`.
+
+## OpenSwarm Agent Graph
 
 `swarm.py` creates one coordinator plus seven specialists:
 
@@ -58,6 +76,26 @@ Each agent folder has:
 
 Shared tools live in `shared_tools/`.
 
+## Security Research Swarm
+
+`swarm_registry.py:create_security_research_agency()` creates:
+
+| Agent | Folder | Model env var | Main responsibility |
+|---|---|---|---|
+| Security Research Orchestrator | `security_research_orchestrator/` | `SECURITY_RESEARCH_ORCHESTRATOR_MODEL` | Coordinates security workstreams. |
+| Security Research Lead | `security_research_lead/` | `SECURITY_RESEARCH_LEAD_MODEL` | Research quality, synthesis, evidence standards. |
+| Threat Intelligence Analyst | `threat_intelligence_analyst/` | `THREAT_INTELLIGENCE_ANALYST_MODEL` | Campaigns, actors, TTPs, exploitation signals. |
+| Vulnerability Researcher | `vulnerability_researcher/` | `VULNERABILITY_RESEARCHER_MODEL` | CVEs, exploitability, remediation, weakness classes. |
+| OSINT Enrichment Specialist | `osint_enrichment_specialist/` | `OSINT_ENRICHMENT_SPECIALIST_MODEL` | Public-source collection and source tracking. |
+| Security Lab Analyst | `security_lab_analyst/` | `SECURITY_LAB_ANALYST_MODEL` | Authorized lab analysis and reproducible notes. |
+| Technical Blog Writer | `technical_blog_writer/` | `TECHNICAL_BLOG_WRITER_MODEL` | Security blog posts, reports, and documents. |
+| Security Visual Designer | `security_visual_designer/` | `SECURITY_VISUAL_DESIGNER_MODEL` | Security visuals using the design profile. |
+
+Security-specific tools live in `security_research_tools/`. Runtime research
+memory defaults to `research_workspace/security/`; generated notes, resources,
+progress, scratch, experiments, and outputs are ignored by Git, while templates,
+design language, and reusable design assets are tracked.
+
 ## Communication Model
 
 `swarm.py` builds two flow types:
@@ -76,7 +114,7 @@ handoff.
 Raw model IDs come from `.env`:
 
 - `DEFAULT_MODEL`
-- Per-agent env vars listed in `model_control.AGENT_MODEL_DEFINITIONS`
+- Per-agent env vars listed in `model_control.SWARM_AGENT_MODEL_DEFINITIONS`
 
 Supported model ID patterns:
 
@@ -93,11 +131,12 @@ Important files:
   provider-appropriate `ModelSettings`.
 - `subscription_models.py` adapts Codex CLI and Claude Code into the OpenAI
   Agents SDK model interface.
-- `model_control.py` exposes runtime model state and applies live switches.
+- `model_control.py` exposes runtime model state and applies live switches per
+  swarm.
 
 When the TUI changes an agent model:
 
-1. TUI posts to `POST /{agency}/openswarm/agent-model`.
+1. TUI posts to `POST /{agency}/openswarm/agent-model` for the selected swarm.
 2. `patches/patch_openswarm_model_control.py` routes the request.
 3. `model_control.set_agent_model(...)` updates the live `Agent`.
 4. The selected model is persisted to `.env`.
@@ -209,6 +248,7 @@ it as an artifact.
 | Goal | Start here |
 |---|---|
 | Add or remove an agent | `swarm.py`, then the relevant agent folder. |
+| Add or remove a swarm | `swarm_registry.py`, then `model_control.py`. |
 | Rename or repurpose an agent | Agent folder, `<agent>.py`, `instructions.md`, and `swarm.py`. |
 | Change agent default models | `.env`, `model_control.py`, and agent env vars. |
 | Add a curated model option | `model_control.MODEL_OPTIONS` and `_MODEL_AUTH_IDS`. |
@@ -217,6 +257,7 @@ it as an artifact.
 | Change TUI model display | `openswarm-models.tsx`, `dialog-agent.tsx`, `prompt/index.tsx`. |
 | Change server API behavior | `server.py`, `patch_openswarm_model_control.py`, Agency Swarm FastAPI integration. |
 | Change research behavior | `shared_tools/WebResearchSearch.py` and `deep_research/`. |
+| Change security research behavior | `security_research_tools/`, security agent folders, and `research_workspace/security/`. |
 | Change slide generation | `slides_agent/tools/` and `slides_agent/instructions.md`. |
 | Change shared context | `shared_instructions.md`. |
 

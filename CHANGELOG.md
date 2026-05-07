@@ -11,6 +11,19 @@ and uses semantic versioning where packaged releases allow it.
 
 ### Added
 
+- Added a registry-driven multi-swarm runtime with `open-swarm` and
+  `security-research`.
+- Added the Security Research Swarm with eight specialist agents for
+  orchestration, deep research, threat intelligence, vulnerability research,
+  OSINT enrichment, lab analysis, technical writing, and visual design.
+- Added public no-key security research tools for NVD/CVE, CISA KEV, FIRST
+  EPSS, and MITRE ATT&CK/CWE/CAPEC lookup.
+- Added local research workspace tools for notes, resources, progress tracking,
+  and design language loading.
+- Added tracked Security Research Workspace templates and design assets under
+  `research_workspace/security/`.
+- Added TUI support for in-app swarm selection, active swarm/agent/model
+  display, and swarm-scoped model management.
 - Added runtime per-agent model controls for OpenSwarm agents.
 - Added OpenSwarm TUI model status display so the prompt footer shows the active
   backend model instead of only `agency-swarm/default`.
@@ -24,6 +37,12 @@ and uses semantic versioning where packaged releases allow it.
 
 ### Changed
 
+- `server.py` and the local TUI bridge now expose every available registered
+  swarm.
+- Model control is now swarm-aware and keeps distinct env vars per swarm while
+  preserving existing OpenSwarm env vars.
+- The onboarding model-routing exports now include Security Research Swarm env
+  vars for subscription-first, API-first, and custom setup paths.
 - Centralized agent `ModelSettings` creation in `config.py` so initial startup
   and live model switching use the same OpenAI/subscription/LiteLLM rules.
 - Updated every agent factory to use the centralized model-settings helper.

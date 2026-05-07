@@ -36,7 +36,29 @@ AGENT_MODEL_DEFINITIONS: tuple[AgentModelDefinition, ...] = (
     AgentModelDefinition("Video Agent", "VIDEO_AGENT_MODEL", reasoning_effort="medium", truncation="auto"),
 )
 
-AGENT_MODEL_ENV_VARS = [(item.name, item.env_key) for item in AGENT_MODEL_DEFINITIONS]
+OPEN_SWARM_AGENT_MODEL_DEFINITIONS = AGENT_MODEL_DEFINITIONS
+
+SECURITY_RESEARCH_AGENT_MODEL_DEFINITIONS: tuple[AgentModelDefinition, ...] = (
+    AgentModelDefinition("Security Research Orchestrator", "SECURITY_RESEARCH_ORCHESTRATOR_MODEL", reasoning_effort="high", truncation="auto"),
+    AgentModelDefinition("Security Research Lead", "SECURITY_RESEARCH_LEAD_MODEL", reasoning_effort="high", truncation="auto"),
+    AgentModelDefinition("Threat Intelligence Analyst", "THREAT_INTELLIGENCE_ANALYST_MODEL", reasoning_effort="high", truncation="auto"),
+    AgentModelDefinition("Vulnerability Researcher", "VULNERABILITY_RESEARCHER_MODEL", reasoning_effort="high", truncation="auto"),
+    AgentModelDefinition("OSINT Enrichment Specialist", "OSINT_ENRICHMENT_SPECIALIST_MODEL", reasoning_effort="medium", truncation="auto"),
+    AgentModelDefinition("Security Lab Analyst", "SECURITY_LAB_ANALYST_MODEL", reasoning_effort="high", truncation="auto"),
+    AgentModelDefinition("Technical Blog Writer", "TECHNICAL_BLOG_WRITER_MODEL", reasoning_effort="medium", truncation="auto"),
+    AgentModelDefinition("Security Visual Designer", "SECURITY_VISUAL_DESIGNER_MODEL", reasoning_effort="medium", truncation="auto"),
+)
+
+SWARM_AGENT_MODEL_DEFINITIONS: dict[str, tuple[AgentModelDefinition, ...]] = {
+    "open-swarm": OPEN_SWARM_AGENT_MODEL_DEFINITIONS,
+    "security-research": SECURITY_RESEARCH_AGENT_MODEL_DEFINITIONS,
+}
+
+AGENT_MODEL_ENV_VARS = [
+    (item.name, item.env_key)
+    for definitions in SWARM_AGENT_MODEL_DEFINITIONS.values()
+    for item in definitions
+]
 
 SUBSCRIPTION_FIRST_MODELS = {
     "DEFAULT_MODEL": "subscription/codex",
@@ -48,6 +70,14 @@ SUBSCRIPTION_FIRST_MODELS = {
     "SLIDES_AGENT_MODEL": "subscription/claude",
     "IMAGE_AGENT_MODEL": "subscription/claude",
     "VIDEO_AGENT_MODEL": "subscription/claude",
+    "SECURITY_RESEARCH_ORCHESTRATOR_MODEL": "subscription/codex",
+    "SECURITY_RESEARCH_LEAD_MODEL": "subscription/codex",
+    "THREAT_INTELLIGENCE_ANALYST_MODEL": "subscription/claude",
+    "VULNERABILITY_RESEARCHER_MODEL": "subscription/codex",
+    "OSINT_ENRICHMENT_SPECIALIST_MODEL": "subscription/claude",
+    "SECURITY_LAB_ANALYST_MODEL": "subscription/codex",
+    "TECHNICAL_BLOG_WRITER_MODEL": "subscription/claude",
+    "SECURITY_VISUAL_DESIGNER_MODEL": "subscription/claude",
 }
 
 MODEL_OPTIONS = [
@@ -75,25 +105,45 @@ _MODEL_PROVIDERS = {
 }
 
 
-def build_model_state(agency: Any, *, live: bool = True) -> dict[str, Any]:
+def build_model_state(
+    agency: Any,
+    *,
+    live: bool = True,
+    swarm_id: str | None = None,
+    agency_id: str | None = None,
+    definitions: tuple[AgentModelDefinition, ...] | None = None,
+) -> dict[str, Any]:
     """Return current model routing and availability for an Agency instance."""
     auth_statuses = {status.id: status for status in get_auth_statuses(live=live)}
     agents_by_name = _agency_agents_by_name(agency)
     entry_points = _agency_entry_point_names(agency)
+    resolved_swarm_id = _resolve_swarm_id(agency, swarm_id=swarm_id, agency_id=agency_id)
+    resolved_definitions = definitions or _agent_definitions_for_swarm(resolved_swarm_id)
 
     return {
         "agency": getattr(agency, "name", None) or "agency",
+        "agencyId": agency_id or resolved_swarm_id or getattr(agency, "name", None) or "agency",
+        "swarmId": resolved_swarm_id,
         "defaultModel": get_configured_model_value(None),
         "catalog": [_catalog_item(title, model, auth_statuses) for title, model in MODEL_OPTIONS],
         "allowCustom": True,
         "agents": [
             _agent_state(item, agents_by_name, entry_points, auth_statuses)
-            for item in AGENT_MODEL_DEFINITIONS
+            for item in resolved_definitions
         ],
     }
 
 
-def set_agent_model(agency: Any, agent_name: str, model_id: str, *, persist: bool = True) -> dict[str, Any]:
+def set_agent_model(
+    agency: Any,
+    agent_name: str,
+    model_id: str,
+    *,
+    persist: bool = True,
+    swarm_id: str | None = None,
+    agency_id: str | None = None,
+    definitions: tuple[AgentModelDefinition, ...] | None = None,
+) -> dict[str, Any]:
     """Update one live agent and persist the chosen model id to .env."""
     clean_agent_name = agent_name.strip()
     clean_model_id = model_id.strip()
@@ -102,9 +152,11 @@ def set_agent_model(agency: Any, agent_name: str, model_id: str, *, persist: boo
     if not clean_model_id:
         raise ValueError("Model id is required")
 
-    definition = _agent_definition(clean_agent_name)
+    resolved_swarm_id = _resolve_swarm_id(agency, swarm_id=swarm_id, agency_id=agency_id)
+    resolved_definitions = definitions or _agent_definitions_for_swarm(resolved_swarm_id)
+    definition = _agent_definition(clean_agent_name, definitions=resolved_definitions)
     if not definition:
-        raise ValueError(f"Unknown OpenSwarm agent: {clean_agent_name}")
+        raise ValueError(f"Unknown agent for swarm {resolved_swarm_id or 'agency'}: {clean_agent_name}")
 
     agents_by_name = _agency_agents_by_name(agency)
     agent = agents_by_name.get(definition.name)
@@ -124,7 +176,23 @@ def set_agent_model(agency: Any, agent_name: str, model_id: str, *, persist: boo
     if persist:
         _set_env_value(definition.env_key, clean_model_id)
 
-    return build_model_state(agency, live=True)
+    return build_model_state(
+        agency,
+        live=True,
+        swarm_id=resolved_swarm_id,
+        agency_id=agency_id,
+        definitions=resolved_definitions,
+    )
+
+
+def get_agent_model_definitions(
+    *,
+    swarm_id: str | None = None,
+    agency_id: str | None = None,
+    agency: Any | None = None,
+) -> tuple[AgentModelDefinition, ...]:
+    resolved_swarm_id = _resolve_swarm_id(agency, swarm_id=swarm_id, agency_id=agency_id)
+    return _agent_definitions_for_swarm(resolved_swarm_id)
 
 
 def _agent_state(
@@ -196,12 +264,48 @@ def _model_label(model_id: str) -> str:
     return model_id
 
 
-def _agent_definition(agent_name: str) -> AgentModelDefinition | None:
+def _agent_definition(
+    agent_name: str,
+    *,
+    definitions: tuple[AgentModelDefinition, ...],
+) -> AgentModelDefinition | None:
     folded = agent_name.casefold()
-    for item in AGENT_MODEL_DEFINITIONS:
+    for item in definitions:
         if item.name.casefold() == folded or item.env_key.casefold() == folded:
             return item
     return None
+
+
+def _agent_definitions_for_swarm(swarm_id: str | None) -> tuple[AgentModelDefinition, ...]:
+    if swarm_id:
+        definitions = SWARM_AGENT_MODEL_DEFINITIONS.get(_normalize_swarm_id(swarm_id))
+        if definitions:
+            return definitions
+    return AGENT_MODEL_DEFINITIONS
+
+
+def _resolve_swarm_id(
+    agency: Any | None = None,
+    *,
+    swarm_id: str | None = None,
+    agency_id: str | None = None,
+) -> str | None:
+    for candidate in (
+        swarm_id,
+        agency_id,
+        getattr(agency, "openswarm_swarm_id", None) if agency is not None else None,
+        getattr(agency, "name", None) if agency is not None else None,
+    ):
+        if not candidate:
+            continue
+        normalized = _normalize_swarm_id(str(candidate))
+        if normalized in SWARM_AGENT_MODEL_DEFINITIONS:
+            return normalized
+    return None
+
+
+def _normalize_swarm_id(value: str) -> str:
+    return value.strip().replace("_", "-").replace(" ", "-").casefold()
 
 
 def _agency_agents_by_name(agency: Any) -> dict[str, Any]:

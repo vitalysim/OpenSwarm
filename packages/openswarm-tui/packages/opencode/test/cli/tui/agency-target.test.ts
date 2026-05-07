@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   buildAgencyTargetOptions,
   resolveAgencyHandoffRecipientFromMessages,
+  resolveAgencyRouteSelection,
   resolveAgencyTargetFromPicker,
   shouldAdoptAgencyHandoffRecipient,
 } from "../../../src/cli/cmd/tui/util/agency-target"
@@ -511,4 +512,50 @@ describe("agency target options", () => {
     expect(shouldAdoptAgencyHandoffRecipient({ frameworkMode: true, ...base, agency: undefined })).toBe(false)
     expect(shouldAdoptAgencyHandoffRecipient({ frameworkMode: true, ...base, assistantAgent: undefined })).toBe(false)
   })
+
+  test("model route uses the configured swarm when multiple swarms are discovered", () => {
+    const selection = resolveAgencyRouteSelection({
+      agencies: [agency("alpha", "Alpha"), agency("beta", "Beta")],
+      configuredAgency: "beta",
+    })
+
+    expect(selection).toEqual({
+      ok: true,
+      agency: agency("beta", "Beta"),
+      implicit: false,
+    })
+  })
+
+  test("model route keeps single-swarm implicit selection for compatibility", () => {
+    const selection = resolveAgencyRouteSelection({
+      agencies: [agency("only", "Only")],
+    })
+
+    expect(selection).toEqual({
+      ok: true,
+      agency: agency("only", "Only"),
+      implicit: true,
+    })
+  })
+
+  test("model route requires an explicit swarm when discovery is ambiguous", () => {
+    const selection = resolveAgencyRouteSelection({
+      agencies: [agency("alpha", "Alpha"), agency("beta", "Beta")],
+    })
+
+    expect(selection).toEqual({
+      ok: false,
+      reason: "ambiguous",
+      message: "Multiple swarms were discovered. Choose a swarm before managing models.",
+    })
+  })
 })
+
+function agency(id: string, name: string) {
+  return {
+    id,
+    name,
+    metadata: {},
+    agents: [],
+  }
+}
