@@ -18,6 +18,7 @@
         "openswarm_skill_registry.py",
         "swarm_registry.py",
         "subscription_models.py",
+        "timeout_config.py",
         "helpers.py",
         "server.py",
         "shared_instructions.md",

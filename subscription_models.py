@@ -11,7 +11,6 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 import json
-import os
 import re
 import subprocess
 import time
@@ -38,6 +37,12 @@ from openai.types.responses import (
 )
 from openai.types.responses.response_usage import InputTokensDetails, OutputTokensDetails
 
+from timeout_config import (
+    MODEL_TIMEOUT_ENV_VAR,
+    get_model_timeout_seconds,
+    normalize_model_timeout_seconds,
+)
+
 
 SubscriptionBackend = Literal["codex", "claude"]
 
@@ -55,7 +60,11 @@ class SubscriptionModel(Model):
     def __init__(self, backend: SubscriptionBackend, *, model: str | None = None, timeout_seconds: int | None = None):
         self.backend = backend
         self.model = model
-        self.timeout_seconds = timeout_seconds or int(os.getenv("SUBSCRIPTION_MODEL_TIMEOUT_SECONDS", "180"))
+        self.timeout_seconds = (
+            normalize_model_timeout_seconds(timeout_seconds)
+            if timeout_seconds is not None
+            else get_model_timeout_seconds()
+        )
 
     async def get_response(
         self,
@@ -325,7 +334,7 @@ def _response_usage(usage: Usage) -> ResponseUsage:
     )
 
 
-def _run_codex(prompt: str, model: str | None, timeout_seconds: int) -> _CliResult:
+def _run_codex(prompt: str, model: str | None, timeout_seconds: int | None) -> _CliResult:
     cmd = [
         "codex",
         "exec",
@@ -377,7 +386,7 @@ def _run_codex(prompt: str, model: str | None, timeout_seconds: int) -> _CliResu
     return _CliResult(text=text, usage=usage, raw=events)
 
 
-def _run_claude(prompt: str, model: str | None, timeout_seconds: int) -> _CliResult:
+def _run_claude(prompt: str, model: str | None, timeout_seconds: int | None) -> _CliResult:
     cmd = [
         "claude",
         "-p",
@@ -411,7 +420,7 @@ def _run_claude(prompt: str, model: str | None, timeout_seconds: int) -> _CliRes
     return _CliResult(text=text, usage=usage, raw=payload)
 
 
-def _run_command(cmd: list[str], stdin: str, timeout_seconds: int) -> subprocess.CompletedProcess[str]:
+def _run_command(cmd: list[str], stdin: str, timeout_seconds: int | None) -> subprocess.CompletedProcess[str]:
     try:
         result = subprocess.run(
             cmd,
@@ -424,7 +433,10 @@ def _run_command(cmd: list[str], stdin: str, timeout_seconds: int) -> subprocess
     except FileNotFoundError as exc:
         raise RuntimeError(f"{cmd[0]} command not found. Run onboarding status for setup instructions.") from exc
     except subprocess.TimeoutExpired as exc:
-        raise RuntimeError(f"{cmd[0]} timed out after {timeout_seconds} seconds.") from exc
+        raise RuntimeError(
+            f"{cmd[0]} timed out after {timeout_seconds} seconds. Increase {MODEL_TIMEOUT_ENV_VAR} "
+            f"or set it to 0/none to disable OpenSwarm model-call timeouts."
+        ) from exc
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "").strip()
         raise RuntimeError(f"{cmd[0]} failed: {detail}")

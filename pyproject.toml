@@ -70,7 +70,7 @@ dev = [
 openswarm = "run_utils:main"
 
 [tool.setuptools]
-py-modules = ["swarm", "swarm_registry", "helpers", "config", "auth_registry", "model_control", "openswarm_skill_registry", "subscription_models", "workspace_context", "onboard", "run", "run_utils", "server"]
+py-modules = ["swarm", "swarm_registry", "helpers", "config", "auth_registry", "model_control", "openswarm_skill_registry", "subscription_models", "timeout_config", "workspace_context", "onboard", "run", "run_utils", "server"]
 
 [tool.setuptools.packages.find]
 where = ["."]

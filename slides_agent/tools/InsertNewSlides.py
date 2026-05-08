@@ -21,6 +21,7 @@ from agents.extensions.models.litellm_model import LitellmModel
 from pydantic import BaseModel, Field, ValidationError
 
 from config import get_agent_model, get_configured_model_value
+from timeout_config import MODEL_TIMEOUT_ENV_VAR, get_model_timeout_seconds
 
 from .slide_file_utils import (
     apply_renames,
@@ -193,9 +194,16 @@ def _run_awaitable(awaitable):
         daemon=True,
     )
     thread.start()
-    thread.join(timeout=180)
+    timeout_seconds = get_model_timeout_seconds()
+    if timeout_seconds is None:
+        thread.join()
+    else:
+        thread.join(timeout=timeout_seconds)
     if thread.is_alive():
-        raise TimeoutError("InsertNewSlides planner timed out after 180s")
+        raise TimeoutError(
+            f"InsertNewSlides planner timed out after {timeout_seconds}s. Increase {MODEL_TIMEOUT_ENV_VAR} "
+            f"or set it to 0/none to disable OpenSwarm model-call timeouts."
+        )
     if "error" in err:
         raise RuntimeError(f"{err['error']}\n{err.get('tb', '')}") from err["error"]
     return box.get("result")

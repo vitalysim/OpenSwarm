@@ -19,6 +19,8 @@ This repo owns a patched AgentSwarm/OpenCode TUI fork in `packages/openswarm-tui
 
 OpenSwarm also owns a provider-neutral skill layer in `openswarm_skills/`. Agents consume those skills through `ListOpenSwarmSkills` and `LoadOpenSwarmSkill`, so the same workflow instructions work with OpenAI, Codex subscription, Claude Code subscription, Anthropic API, and future model backends. Skills v1 are instructions and read-only resources only; do not execute scripts from skill folders.
 
+Model calls do not have an OpenSwarm hard timeout by default. `OPENSWARM_MODEL_TIMEOUT_SECONDS` is the opt-in override for subscription CLIs and other OpenSwarm-owned model worker calls; blank/`0`/`none` means let the user cancel or the provider stop the request.
+
 When changing TUI behavior:
 
 1. Edit source under `packages/openswarm-tui/packages/opencode/`.

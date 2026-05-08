@@ -31,6 +31,9 @@ and uses semantic versioning where packaged releases allow it.
   backend discovery/loading tools for all primary agents.
 - Added TUI `/skills` support for OpenSwarm launches so skill selections insert
   an OpenSwarm instruction directive instead of a provider-native slash command.
+- Added `OPENSWARM_MODEL_TIMEOUT_SECONDS` for optional model-call timeouts; by
+  default OpenSwarm no longer hard-stops subscription or slide model calls at
+  180 seconds.
 - Added runtime per-agent model controls for OpenSwarm agents.
 - Added OpenSwarm TUI model status display so the prompt footer shows the active
   backend model instead of only `agency-swarm/default`.

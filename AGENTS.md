@@ -138,6 +138,7 @@ The coding agent will read this file, understand the structure, and make the rig
 - OpenSwarm skills live in `openswarm_skills/<skill-name>/SKILL.md` and are loaded through `ListOpenSwarmSkills` / `LoadOpenSwarmSkill`, not provider-native global skill folders.
 - OpenSwarm skills v1 are instructions and read-only resources only; do not execute scripts from skill folders.
 - Models are configured via `DEFAULT_MODEL` and optional per-agent model env vars in `.env` — never hardcoded
+- OpenSwarm does not hard-timeout model calls by default. `OPENSWARM_MODEL_TIMEOUT_SECONDS` can opt into a positive timeout; blank/`0`/`none` disables the OpenSwarm-side model timeout.
 - Use `uv` for Python environments and dependency installation:
   - `uv sync` creates/updates the repo-local `.venv`
   - `uv sync --group dev` includes test dependencies

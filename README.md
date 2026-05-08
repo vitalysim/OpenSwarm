@@ -123,6 +123,11 @@ Check everything with:
 uv run python onboard.py --status
 ```
 
+Model calls do not have an OpenSwarm hard timeout by default. To opt into one,
+set `OPENSWARM_MODEL_TIMEOUT_SECONDS` to a positive number of seconds; leave it
+blank or set `0`/`none` to keep model calls unbounded until canceled or stopped
+by the provider.
+
 Tools gracefully degrade when keys are missing — you'll get clear instructions on what to add.
 
 ---

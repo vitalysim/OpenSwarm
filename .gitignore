@@ -204,6 +204,7 @@ research_workspace/security/progress/
 research_workspace/security/scratch/
 research_workspace/security/experiments/
 research_workspace/security/outputs/
+research_workspace/security/cast-attack-ghost-bits/
 
 # Keep the vendored TUI source complete even though this repo has broad
 # Python-oriented ignores for directory names like env/, instance/, and lib/.

@@ -144,6 +144,14 @@ When the TUI changes an agent model:
 4. The selected model is persisted to `.env`.
 5. Future runs load the same model at startup.
 
+OpenSwarm does not impose a hard timeout on model calls by default. This applies
+to Codex subscription, Claude Code subscription, OpenAI API, LiteLLM, and slide
+sub-agent model calls. Set `OPENSWARM_MODEL_TIMEOUT_SECONDS` to a positive
+integer to opt into a hard model-call timeout; blank, `0`, `none`, or
+`disabled` leaves model calls unbounded until the user cancels them or the
+provider/CLI stops them. Tool-level timeouts, such as web search, browser
+rendering, LibreOffice, and HTTP downloads, remain separate.
+
 ## Authentication And Service Status
 
 `auth_registry.py` defines every provider and service:
