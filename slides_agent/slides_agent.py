@@ -3,7 +3,7 @@ from agency_swarm.tools import IPythonInterpreter, PersistentShellTool, LoadFile
 from datetime import datetime, timezone
 from pathlib import Path
 from virtual_assistant.tools.ReadFile import ReadFile
-from shared_tools import WebResearchSearch
+from shared_tools import ListOpenSwarmSkills, LoadOpenSwarmSkill, WebResearchSearch
 from shared_tools.CopyFile import CopyFile
 
 from config import get_agent_model, get_agent_model_settings
@@ -51,7 +51,7 @@ def _build_instructions() -> str:
     )
 
 
-def create_slides_agent() -> Agent:
+def create_slides_agent(model_env_var: str = MODEL_ENV_VAR) -> Agent:
     return Agent(
         name="Slides Agent",
         description="PowerPoint presentation specialist for creating, editing, and analyzing .pptx files",
@@ -59,6 +59,8 @@ def create_slides_agent() -> Agent:
         # files_folder=os.path.join(current_dir, "files"),
         # tools_folder=os.path.join(current_dir, "tools"),
         tools=[
+            ListOpenSwarmSkills,
+            LoadOpenSwarmSkill,
             # Slide creation and management: InsertNewSlides then ModifySlide
             InsertNewSlides,
             ModifySlide,
@@ -89,8 +91,8 @@ def create_slides_agent() -> Agent:
             ReadFile,
             WebResearchSearch,
         ],
-        model=get_agent_model(MODEL_ENV_VAR),
-        model_settings=get_agent_model_settings(MODEL_ENV_VAR, reasoning_effort="high", verbosity="medium"),
+        model=get_agent_model(model_env_var),
+        model_settings=get_agent_model_settings(model_env_var, reasoning_effort="high", verbosity="medium"),
         conversation_starters=[
             "Create a new presentation about the benefits of using AI in the workplace.",
             "Edit my existing presentation and improve the design.",

@@ -6,7 +6,7 @@ from image_generation_agent.tools.CombineImages import CombineImages
 from image_generation_agent.tools.EditImages import EditImages
 from image_generation_agent.tools.GenerateImages import GenerateImages
 from image_generation_agent.tools.RemoveBackground import RemoveBackground
-from shared_tools import CopyFile
+from shared_tools import CopyFile, ListOpenSwarmSkills, LoadOpenSwarmSkill
 from security_research_tools import LoadSecurityDesignLanguage, ManageSecurityResearchNote, ManageSecurityResearchResource
 
 from config import get_agent_model, get_agent_model_settings
@@ -24,6 +24,8 @@ def create_security_visual_designer() -> Agent:
         model=get_agent_model(MODEL_ENV_VAR),
         model_settings=get_agent_model_settings(MODEL_ENV_VAR, reasoning_effort="medium", truncation="auto"),
         tools=[
+            ListOpenSwarmSkills,
+            LoadOpenSwarmSkill,
             LoadSecurityDesignLanguage,
             GenerateImages,
             EditImages,

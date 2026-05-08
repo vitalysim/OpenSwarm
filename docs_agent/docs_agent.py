@@ -3,7 +3,7 @@ from pathlib import Path
 
 from agency_swarm import Agent, Agency
 from agency_swarm.tools import IPythonInterpreter
-from shared_tools import CopyFile, WebResearchSearch
+from shared_tools import CopyFile, ListOpenSwarmSkills, LoadOpenSwarmSkill, WebResearchSearch
 
 from config import get_agent_model, get_agent_model_settings
 
@@ -40,7 +40,7 @@ def create_docs_agent() -> Agent:
         tools_folder="./tools",
         model=get_agent_model(MODEL_ENV_VAR),
         model_settings=get_agent_model_settings(MODEL_ENV_VAR, reasoning_effort="medium"),
-        tools=[WebResearchSearch, IPythonInterpreter, CopyFile],
+        tools=[ListOpenSwarmSkills, LoadOpenSwarmSkill, WebResearchSearch, IPythonInterpreter, CopyFile],
         conversation_starters=[
             "Draft Week 34 client status report with a table and export as PDF.",
             "Create a one-page AI chatbot proposal and export as DOCX.",

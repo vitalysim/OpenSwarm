@@ -23,6 +23,8 @@ import {
 } from "solid-js"
 import "opentui-spinner/solid"
 import path from "path"
+import os from "node:os"
+import { existsSync, statSync } from "node:fs"
 import { fileURLToPath } from "url"
 import { Filesystem } from "@/util"
 import { useLocal } from "@tui/context/local"
@@ -64,6 +66,7 @@ import { createFadeIn } from "../../util/signal"
 import { useTextareaKeybindings } from "../textarea-keybindings"
 import { DialogSkill } from "../dialog-skill"
 import { DialogAgent } from "../dialog-agent"
+import { DialogPrompt } from "../../ui/dialog-prompt"
 import { CONSOLE_MANAGED_ICON, consoleManagedProviderLabel } from "@tui/util/provider-origin"
 import { AgencySwarmAdapter } from "@/agency-swarm/adapter"
 import { AgencySwarmRunSession } from "@/agency-swarm/run-session"
@@ -85,6 +88,8 @@ import {
   resolveAgencyTargetSelection,
   shouldAdoptAgencyHandoffRecipient,
 } from "../../util/agency-target"
+import { updateAgencyProviderConfig } from "../../util/agency-provider-config"
+import { skillPromptText } from "../../util/skill-directive"
 import { hasAgencyHandoffEvidence } from "@/session/agency-swarm-utils"
 import { DialogWorkspaceCreate, restoreWorkspaceSession } from "../dialog-workspace-create"
 import { DialogWorkspaceUnavailable } from "../dialog-workspace-unavailable"
@@ -128,6 +133,21 @@ function randomIndex(count: number) {
 
 function fadeColor(color: RGBA, alpha: number) {
   return RGBA.fromValues(color.r, color.g, color.b, color.a * alpha)
+}
+
+function resolveWorkingDirectoryInput(value: string, base: string) {
+  const raw = value.trim()
+  if (!raw) return undefined
+  const expanded = raw === "~" ? os.homedir() : raw.startsWith("~/") ? path.join(os.homedir(), raw.slice(2)) : raw
+  return path.resolve(base || process.cwd(), expanded)
+}
+
+function isExistingDirectory(value: string) {
+  try {
+    return existsSync(value) && statSync(value).isDirectory()
+  } catch {
+    return false
+  }
 }
 
 let stashed: { prompt: PromptInfo; cursor: number } | undefined
@@ -251,7 +271,9 @@ export function Prompt(props: PromptProps) {
     })
     if (selection.ok) return selection.agency.name
     if (selection.reason === "ambiguous") return "Choose swarm"
-    return options.agency
+    if (options.agency) return options.agency
+    if (frameworkRecipientDiscovery.loading) return "Loading swarm"
+    return "Choose swarm"
   })
   const frameworkRecipientLabel = createMemo(() => {
     if (!frameworkMode()) return undefined
@@ -279,6 +301,17 @@ export function Prompt(props: PromptProps) {
     if (!swarm) return recipient
     if (!recipient) return `Swarm: ${swarm}`
     return `Swarm: ${swarm} · ${recipient}`
+  })
+  const effectiveWorkingDirectory = createMemo(() => {
+    const configured = agencyProviderOptions().workingDirectory
+    if (configured) return configured
+    return project.instance.path().directory || process.cwd()
+  })
+  const workingDirectoryLabel = createMemo(() => {
+    const directory = effectiveWorkingDirectory()
+    if (!directory) return undefined
+    const display = directory.replace(os.homedir(), "~")
+    return Locale.truncateMiddle(display, Math.max(18, Math.min(48, Math.floor(dimensions().width / 3))))
   })
 
   createEffect(
@@ -380,7 +413,7 @@ export function Prompt(props: PromptProps) {
     if (frameworkMode()) {
       const current = openSwarmModels.currentAgentModel()
       if (current) return current.modelLabel
-      return "agency-swarm"
+      return "OpenSwarm"
     }
     const current = local.model.current()
     const provider = local.model.parsed().provider
@@ -392,11 +425,37 @@ export function Prompt(props: PromptProps) {
       const current = openSwarmModels.currentAgentModel()
       if (current) return current.model
       if (!agencyProviderOptions().agency && frameworkRecipientDiscovery().length > 1) return "select swarm"
-      if (openSwarmModels.loading()) return "loading model"
+      if (frameworkRecipientDiscovery.loading || openSwarmModels.loading()) return "loading model"
+      return "model pending"
     }
     return local.model.parsed().model
   })
   const hasRightContent = createMemo(() => Boolean(props.right))
+
+  async function setAgencyWorkingDirectory(directory: string | null) {
+    const options = agencyProviderOptions()
+    const nextOptions: Record<string, unknown> = {
+      ...options.rawOptions,
+      baseURL: options.baseURL,
+      discoveryTimeoutMs: options.discoveryTimeoutMs,
+      workingDirectory: directory,
+      working_directory: null,
+    }
+    if (options.agency) nextOptions["agency"] = options.agency
+    if (options.recipientAgent !== undefined) nextOptions["recipientAgent"] = options.recipientAgent
+    if (options.recipientAgentSelectedAt !== undefined) {
+      nextOptions["recipientAgentSelectedAt"] = options.recipientAgentSelectedAt
+    }
+    if (options.configToken) nextOptions["token"] = options.configToken
+
+    await updateAgencyProviderConfig({
+      client: sdk.client,
+      sync,
+      nextOptions,
+      fetch: sdk.fetch,
+      url: sdk.url,
+    })
+  }
 
   function promptModelWarning() {
     const agency = local.model.current()?.providerID === AgencySwarmAdapter.PROVIDER_ID
@@ -615,6 +674,54 @@ export function Prompt(props: PromptProps) {
         },
       },
       {
+        title: "Set working directory",
+        value: "openswarm.cwd",
+        category: "OpenSwarm",
+        slash: {
+          name: "cwd",
+        },
+        enabled: frameworkMode(),
+        onSelect: async (dialog) => {
+          const base = project.instance.path().directory || process.cwd()
+          const value = await DialogPrompt.show(dialog, "Set working directory", {
+            value: effectiveWorkingDirectory(),
+            placeholder: base,
+            description: () => (
+              <text fg={theme.textMuted}>Relative paths are resolved from the current project directory.</text>
+            ),
+          })
+          if (value == null) return
+          dialog.clear()
+
+          const resolved = resolveWorkingDirectoryInput(value, base)
+          if (!resolved) {
+            await setAgencyWorkingDirectory(null)
+            toast.show({
+              message: "Working directory reset to project directory.",
+              variant: "success",
+              duration: 3000,
+            })
+            return
+          }
+
+          if (!isExistingDirectory(resolved)) {
+            toast.show({
+              message: `Directory does not exist: ${resolved}`,
+              variant: "error",
+              duration: 5000,
+            })
+            return
+          }
+
+          await setAgencyWorkingDirectory(resolved)
+          toast.show({
+            message: `Working directory set to ${resolved}`,
+            variant: "success",
+            duration: 3000,
+          })
+        },
+      },
+      {
         title: "Open editor",
         category: "Session",
         keybind: "editor_open",
@@ -714,9 +821,10 @@ export function Prompt(props: PromptProps) {
           dialog.replace(() => (
             <DialogSkill
               onSelect={(skill) => {
-                input.setText(`/${skill} `)
+                const next = skillPromptText(skill, frameworkMode())
+                input.setText(next)
                 setStore("prompt", {
-                  input: `/${skill} `,
+                  input: next,
                   parts: [],
                 })
                 input.gotoBufferEnd()
@@ -1698,6 +1806,15 @@ export function Prompt(props: PromptProps) {
                             <text fg={theme.error} onMouseUp={() => agencyConnection.openConnectDialog()}>
                               disconnected
                             </text>
+                          </Show>
+                          <Show when={frameworkMode() && workingDirectoryLabel()}>
+                            {(label) => (
+                              <>
+                                <text fg={fadeColor(theme.textMuted, modelMetaAlpha())}>·</text>
+                                <text fg={fadeColor(theme.textMuted, modelMetaAlpha())}>cwd</text>
+                                <text fg={fadeColor(theme.text, modelMetaAlpha())}>{label()}</text>
+                              </>
+                            )}
                           </Show>
                           <Show when={showVariant()}>
                             <text fg={fadeColor(theme.textMuted, variantMetaAlpha())}>·</text>

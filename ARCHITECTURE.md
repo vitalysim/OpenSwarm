@@ -39,6 +39,7 @@ Typical local run:
 | `model_control.py` | Runtime model catalog, per-agent model switching, auth availability, and `.env` persistence. |
 | `auth_registry.py` | Single source of truth for subscriptions, API keys, services, and status checks. |
 | `subscription_models.py` | OpenAI Agents SDK model adapter for local Codex CLI and Claude Code subscription auth. |
+| `openswarm_skill_registry.py` | Project-local skill discovery/loading for provider-neutral OpenSwarm skills. |
 
 ## Swarms
 
@@ -47,7 +48,7 @@ OpenSwarm is now registry-driven. `swarm_registry.py` defines these swarms:
 | Swarm ID | Display name | Purpose |
 |---|---|---|
 | `open-swarm` | OpenSwarm | General-purpose multi-agent workbench. |
-| `security-research` | Security Research | Security research, threat intel, vulnerability analysis, labs, blogs, and visuals. |
+| `security-research` | Security Research | Security research, threat intel, vulnerability analysis, labs, blogs, slides, and visuals. |
 
 `swarm.py:create_agency()` remains the compatibility factory for the original
 OpenSwarm graph. New swarms should be added to `swarm_registry.py`, then given
@@ -89,6 +90,7 @@ Shared tools live in `shared_tools/`.
 | OSINT Enrichment Specialist | `osint_enrichment_specialist/` | `OSINT_ENRICHMENT_SPECIALIST_MODEL` | Public-source collection and source tracking. |
 | Security Lab Analyst | `security_lab_analyst/` | `SECURITY_LAB_ANALYST_MODEL` | Authorized lab analysis and reproducible notes. |
 | Technical Blog Writer | `technical_blog_writer/` | `TECHNICAL_BLOG_WRITER_MODEL` | Security blog posts, reports, and documents. |
+| Slides Agent | `slides_agent/` | `SECURITY_RESEARCH_SLIDES_AGENT_MODEL` | HTML slides and PPTX decks for security research deliverables. |
 | Security Visual Designer | `security_visual_designer/` | `SECURITY_VISUAL_DESIGNER_MODEL` | Security visuals using the design profile. |
 
 Security-specific tools live in `security_research_tools/`. Runtime research
@@ -155,6 +157,67 @@ When the TUI changes an agent model:
 availability. Secrets are never printed; status only reports whether credentials
 or CLI logins are present.
 
+## OpenSwarm Skills
+
+OpenSwarm has its own provider-neutral skill layer. Skills live in
+`openswarm_skills/<skill-name>/SKILL.md` by default and can be redirected with
+`OPENSWARM_SKILLS_DIR`.
+
+The backend path is:
+
+- `openswarm_skill_registry.py`: validates and loads project-local skills.
+- `shared_tools/OpenSwarmSkills.py`: exposes `ListOpenSwarmSkills` and
+  `LoadOpenSwarmSkill` to every primary agent.
+- `shared_instructions.md`: tells agents when to discover/load skills and how
+  to treat loaded skill text.
+
+V1 skills are instructions plus read-only resources. The registry can include
+resource previews for small text files, but it does not execute scripts from a
+skill folder.
+
+When OpenSwarm launches the TUI, `run_utils.py` sets `OPENSWARM_SKILLS_DIR` and
+disables external global skill scanning. In Agency Swarm mode, the TUI `/skills`
+picker lists only OpenSwarm skills and inserts an explicit instruction such as
+`Use OpenSwarm skill "..." for this request:` instead of a native provider slash
+command. This keeps behavior consistent across OpenAI, Codex subscription,
+Claude Code subscription, Anthropic API, and future model backends.
+
+## Working Directory And Artifacts
+
+OpenSwarm has a request-scoped working directory so the TUI and Python tools can
+agree on the active project.
+
+The main pieces are:
+
+- `packages/openswarm-tui/.../component/prompt/index.tsx`: shows the active
+  `cwd` in the prompt footer and exposes the `/cwd` command.
+- `packages/openswarm-tui/.../session/agency-swarm.ts`: attaches
+  `openswarm_working_directory` to `client_config` for local Agency Swarm
+  requests, defaulting to the current TUI project directory unless the user
+  configured one explicitly.
+- `patches/patch_file_attachment_refs.py`: strips that transport-only
+  `client_config` field and installs the Python request context for the
+  response stream.
+- `workspace_context.py`: resolves the active directory, guards relative path
+  traversal, and provides `resolve_input_path`, `resolve_output_path`, and
+  `get_artifact_root`.
+
+Tools should use `workspace_context` instead of hardcoding `mnt/` or requiring
+absolute paths. Current consumers include:
+
+- `virtual_assistant/tools/ReadFile.py`
+- `virtual_assistant/tools/WriteFile.py`
+- `shared_tools/CopyFile.py`
+- `docs_agent/tools/utils/doc_file_utils.py`
+- `slides_agent/tools/slide_file_utils.py`
+- `image_generation_agent/tools/utils/image_io.py`
+- `video_generation_agent/tools/utils/`
+- `security_research_tools/public_intel.py`
+
+By default, generated documents, decks, media, and research workspace files are
+saved under the active project root. A user-selected `/cwd` overrides that
+default for subsequent prompts.
+
 ## Web Research
 
 Shared web research is exposed through `shared_tools/WebResearchSearch.py`.
@@ -198,8 +261,20 @@ Key OpenSwarm integration points:
 | `packages/openswarm-tui/packages/opencode/src/cli/cmd/tui/context/agency-swarm-connection.tsx` | Bridge health and reconnect handling. |
 | `packages/openswarm-tui/packages/opencode/src/cli/cmd/tui/context/openswarm-models.tsx` | OpenSwarm model state resource and live model update action. |
 | `packages/openswarm-tui/packages/opencode/src/cli/cmd/tui/component/dialog-agent.tsx` | Swarm/agent picker and model management UI. |
-| `packages/openswarm-tui/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx` | Prompt footer display for active agent/model. |
+| `packages/openswarm-tui/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx` | Prompt footer display for active swarm/agent/model/cwd and `/cwd` command. |
+| `packages/openswarm-tui/packages/opencode/src/cli/cmd/tui/util/skill-directive.ts` | Converts `/skills` selections into native slash commands or OpenSwarm skill directives depending on runtime mode. |
+| `packages/openswarm-tui/packages/opencode/src/cli/cmd/tui/util/agency-provider-config.ts` | Shared updater for agency-swarm provider options; keeps launcher env config, worker runtime config, and persisted config aligned. |
+| `packages/openswarm-tui/packages/opencode/src/config/runtime-content.ts` | Worker-local override for `OPENCODE_CONFIG_CONTENT`, used when the TUI changes swarms or working directory during a running session. |
+| `packages/openswarm-tui/packages/opencode/src/skill/index.ts` | Skill discovery; OpenSwarm launches constrain it to `OPENSWARM_SKILLS_DIR`. |
 | `packages/openswarm-tui/FORK_CHANGELOG.md` | TUI fork-specific notes inherited from earlier TUI work. |
+
+When the TUI is launched from OpenSwarm, the initial provider config often comes
+from `OPENCODE_CONFIG_CONTENT`. Directly writing only the persistent config file
+is not enough because that environment content has final precedence. Swarm and
+`/cwd` changes therefore also patch the running worker's runtime config content
+through `PATCH /global/config/content`; `Config.get()` merges that runtime
+content so the footer and subsequent `/{agency}/get_response_stream` requests
+use the selected swarm immediately.
 
 Build and test:
 
@@ -217,7 +292,7 @@ Local patches live in `patches/` and are applied from `swarm.py`.
 |---|---|
 | `patch_utf8_file_reads.py` | Makes file reads more robust for UTF-8 content. |
 | `patch_agency_swarm_dual_comms.py` | Keeps SendMessage and Handoff behavior distinct. |
-| `patch_file_attachment_refs.py` | Improves file attachment references. |
+| `patch_file_attachment_refs.py` | Improves file attachment references and installs request-scoped working-directory context. |
 | `patch_ipython_interpreter_composio.py` | Preserves Composio context in IPython tool execution. |
 | `patch_openswarm_model_control.py` | Adds OpenSwarm model-control routes to the local TUI bridge. |
 
@@ -255,6 +330,8 @@ it as an artifact.
 | Add a new auth/service key | `auth_registry.AUTH_DEFINITIONS`. |
 | Change onboarding flow | `onboard.py`. |
 | Change TUI model display | `openswarm-models.tsx`, `dialog-agent.tsx`, `prompt/index.tsx`. |
+| Change working-directory or artifact routing | `workspace_context.py`, `patch_file_attachment_refs.py`, and TUI `prompt/index.tsx`. |
+| Add or change OpenSwarm skills | `openswarm_skills/`, `openswarm_skill_registry.py`, `shared_tools/OpenSwarmSkills.py`, and `shared_instructions.md`. |
 | Change server API behavior | `server.py`, `patch_openswarm_model_control.py`, Agency Swarm FastAPI integration. |
 | Change research behavior | `shared_tools/WebResearchSearch.py` and `deep_research/`. |
 | Change security research behavior | `security_research_tools/`, security agent folders, and `research_workspace/security/`. |

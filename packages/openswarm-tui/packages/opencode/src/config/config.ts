@@ -44,6 +44,7 @@ import { ConfigSkills } from "./skills"
 import { ConfigVariable } from "./variable"
 import { Npm } from "@opencode-ai/core/npm"
 import { AgencyBrand } from "@/agency-swarm/brand"
+import { getRuntimeConfigContent } from "./runtime-content"
 
 const log = Log.create({ service: "config" })
 
@@ -66,6 +67,62 @@ function normalizeLoadedConfig(data: unknown, source: string) {
   delete copy.tui
   log.warn("tui keys in opencode config are deprecated; move them to tui.json", { path: source })
   return copy
+}
+
+const agencySwarmProviderID = "agency-swarm"
+
+function agencySwarmProviderOptions(info: Info) {
+  const provider = isRecord(info.provider?.[agencySwarmProviderID]) ? info.provider[agencySwarmProviderID] : undefined
+  const options = isRecord(provider?.options) ? provider.options : undefined
+  return options
+}
+
+function agencySwarmSelectedAt(options: Record<string, unknown>) {
+  const value = options.recipientAgentSelectedAt ?? options.recipient_agent_selected_at
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined
+}
+
+function agencySwarmBaseURL(options: Record<string, unknown>) {
+  const value = options.baseURL ?? options.base_url
+  return typeof value === "string" ? value.replace(/\/+$/, "") : undefined
+}
+
+function applyPersistedAgencySwarmTarget(input: { result: Info; global: Info }) {
+  const globalOptions = agencySwarmProviderOptions(input.global)
+  const currentOptions = agencySwarmProviderOptions(input.result)
+  if (!globalOptions || !currentOptions) return input.result
+
+  const globalSelectedAt = agencySwarmSelectedAt(globalOptions)
+  if (!globalSelectedAt) return input.result
+
+  const currentSelectedAt = agencySwarmSelectedAt(currentOptions)
+  if (currentSelectedAt && currentSelectedAt >= globalSelectedAt) return input.result
+
+  const globalBaseURL = agencySwarmBaseURL(globalOptions)
+  const currentBaseURL = agencySwarmBaseURL(currentOptions)
+  if (globalBaseURL && currentBaseURL && globalBaseURL !== currentBaseURL) return input.result
+
+  const provider = isRecord(input.result.provider) ? input.result.provider : {}
+  const currentProvider = isRecord(provider[agencySwarmProviderID]) ? provider[agencySwarmProviderID] : {}
+  const nextProvider = {
+    ...currentProvider,
+    options: {
+      ...currentOptions,
+      agency: globalOptions.agency,
+      recipientAgent: globalOptions.recipientAgent ?? globalOptions.recipient_agent ?? null,
+      recipientAgentSelectedAt: globalSelectedAt,
+      recipient_agent: null,
+      recipient_agent_selected_at: null,
+    },
+  }
+
+  return {
+    ...input.result,
+    provider: {
+      ...provider,
+      [agencySwarmProviderID]: nextProvider,
+    },
+  }
 }
 
 async function resolveLoadedPlugins<T extends { plugin?: ConfigPlugin.Spec[] }>(config: T, filepath: string) {
@@ -611,13 +668,15 @@ export const layer = Layer.effect(
           yield* mergePluginOrigins(dir, list)
         }
 
-        if (process.env.OPENCODE_CONFIG_CONTENT) {
+        const runtimeConfigContent = getRuntimeConfigContent()
+        if (runtimeConfigContent) {
           const source = "OPENCODE_CONFIG_CONTENT"
-          const next = yield* loadConfig(process.env.OPENCODE_CONFIG_CONTENT, {
+          const next = yield* loadConfig(runtimeConfigContent, {
             dir: ctx.directory,
             source,
           })
           yield* merge(source, next, "local")
+          result = applyPersistedAgencySwarmTarget({ result, global: yield* loadGlobal() })
           log.debug("loaded custom config from OPENCODE_CONFIG_CONTENT")
         }
 
@@ -740,7 +799,16 @@ export const layer = Layer.effect(
     )
 
     const get = Effect.fn("Config.get")(function* () {
-      return yield* InstanceState.use(state, (s) => s.config)
+      const current = yield* InstanceState.use(state, (s) => s.config)
+      const runtimeConfigContent = getRuntimeConfigContent()
+      if (!runtimeConfigContent) return current
+
+      const ctx = yield* InstanceState.context
+      const next = yield* loadConfig(runtimeConfigContent, {
+        dir: ctx.directory,
+        source: "OPENCODE_CONFIG_CONTENT",
+      })
+      return mergeConfigConcatArrays(current, next)
     })
 
     const directories = Effect.fn("Config.directories")(function* () {
@@ -764,6 +832,7 @@ export const layer = Layer.effect(
       yield* fs
         .writeFileString(file, JSON.stringify(mergeDeep(writable(existing), writable(config)), null, 2))
         .pipe(Effect.orDie)
+      yield* InstanceState.invalidate(state)
       if (options?.dispose !== false) yield* Effect.promise(() => Instance.dispose())
     })
 

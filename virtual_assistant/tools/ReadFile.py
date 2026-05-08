@@ -4,6 +4,7 @@ from typing import Optional
 
 from agency_swarm.tools import BaseTool
 from pydantic import Field
+from workspace_context import resolve_input_path
 
 
 class ReadFile(BaseTool):
@@ -12,13 +13,13 @@ class ReadFile(BaseTool):
     Use this tool to read file contents before editing or to understand existing code.
 
     Usage:
-    - The file_path parameter must be an absolute path
+    - Relative paths are resolved against the current OpenSwarm working directory
     - By default, it reads up to 2000 lines starting from the beginning
     - You can optionally specify a line offset and limit for long files
     - Results are returned with line numbers in cat -n format
     """
 
-    file_path: str = Field(..., description="The absolute path to the file to read")
+    file_path: str = Field(..., description="Path to the file to read. Relative paths resolve from the current working directory.")
     offset: Optional[int] = Field(
         None,
         description="The line number to start reading from. Only provide if the file is too large to read at once",
@@ -30,7 +31,8 @@ class ReadFile(BaseTool):
 
     def run(self):
         try:
-            abs_path = os.path.abspath(self.file_path)
+            resolved_path = resolve_input_path(self.file_path)
+            abs_path = str(resolved_path)
             try:
                 if hasattr(self, '_context') and self._context is not None:
                     read_files = self._context.get("read_files", set())
@@ -40,28 +42,28 @@ class ReadFile(BaseTool):
                 # Context not available in standalone test mode
                 pass
 
-            if not os.path.exists(self.file_path):
-                return f"Error: File does not exist: {self.file_path}"
+            if not resolved_path.exists():
+                return f"Error: File does not exist: {resolved_path}"
 
-            if not os.path.isfile(self.file_path):
-                return f"Error: Path is not a file: {self.file_path}"
+            if not resolved_path.is_file():
+                return f"Error: Path is not a file: {resolved_path}"
 
-            mime_type, _ = mimetypes.guess_type(self.file_path)
+            mime_type, _ = mimetypes.guess_type(str(resolved_path))
             if mime_type and mime_type.startswith("image/"):
-                return f"[IMAGE FILE: {self.file_path}]\nThis is an image file ({mime_type}). In a multimodal environment, the image content would be displayed visually."
+                return f"[IMAGE FILE: {resolved_path}]\nThis is an image file ({mime_type}). In a multimodal environment, the image content would be displayed visually."
 
-            if self.file_path.endswith(".ipynb"):
+            if str(resolved_path).endswith(".ipynb"):
                 return "Error: This is a Jupyter notebook file. Please use a notebook-specific tool instead."
 
             try:
-                with open(self.file_path, "r", encoding="utf-8") as file:
+                with open(resolved_path, "r", encoding="utf-8") as file:
                     lines = file.readlines()
             except UnicodeDecodeError:
                 try:
-                    with open(self.file_path, "r", encoding="latin-1") as file:
+                    with open(resolved_path, "r", encoding="latin-1") as file:
                         lines = file.readlines()
                 except UnicodeDecodeError:
-                    return f"Error: Unable to decode file {self.file_path}. It may be a binary file."
+                    return f"Error: Unable to decode file {resolved_path}. It may be a binary file."
 
             if not lines:
                 return f"Warning: File exists but has empty contents: {self.file_path}"
@@ -105,4 +107,3 @@ if __name__ == "__main__":
     tool = ReadFile(file_path=current_file, limit=10)
     print("Reading first 10 lines:")
     print(tool.run())
-

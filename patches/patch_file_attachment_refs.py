@@ -3,6 +3,13 @@ Patch: inject attachment file references into the user message.
 """
 
 import asyncio
+from contextlib import contextmanager
+
+from workspace_context import (
+    extract_working_directory_from_client_config,
+    reset_current_working_directory,
+    set_current_working_directory,
+)
 
 _PATCH_APPLIED = False
 
@@ -39,11 +46,9 @@ def _patch_endpoint_handler_factories() -> None:
         original_handler = _original_make_response(request_model, agency_factory, verify_token, allowed_local_dirs)
 
         async def handler(request: request_model, token: str = Depends(verify_token)):
-            if getattr(request, "file_urls", None):
-                note = _build_attachment_note(request.file_urls)
-                existing = getattr(request, "additional_instructions", None) or ""
-                request = request.model_copy(update={"additional_instructions": (existing + "\n\n" + note).strip()})
-            return await original_handler(request, token)
+            request, working_directory = _prepare_request(request)
+            with _working_directory_scope(working_directory):
+                return await original_handler(request, token)
 
         return handler
 
@@ -51,14 +56,15 @@ def _patch_endpoint_handler_factories() -> None:
         original_handler = _original_make_stream(request_model, agency_factory, verify_token, run_registry, allowed_local_dirs)
 
         async def handler(http_request: FastAPIRequest, request: request_model, token: str = Depends(verify_token)):
-            if getattr(request, "file_urls", None):
-                note = _build_attachment_note(request.file_urls)
-                existing = getattr(request, "additional_instructions", None) or ""
-                request = request.model_copy(update={"additional_instructions": (existing + "\n\n" + note).strip()})
-            response = await original_handler(http_request, request, token)
+            request, working_directory = _prepare_request(request)
+            with _working_directory_scope(working_directory):
+                response = await original_handler(http_request, request, token)
             body_iterator = getattr(response, "body_iterator", None)
             if body_iterator is not None:
-                response.body_iterator = _with_sse_heartbeats(body_iterator)
+                response.body_iterator = _with_workspace_context(
+                    _with_sse_heartbeats(body_iterator),
+                    working_directory,
+                )
             return response
 
         return handler
@@ -67,17 +73,48 @@ def _patch_endpoint_handler_factories() -> None:
         original_handler = _original_make_agui(request_model, agency_factory, verify_token, allowed_local_dirs)
 
         async def handler(request: request_model, token: str = Depends(verify_token)):
-            if getattr(request, "file_urls", None):
-                note = _build_attachment_note(request.file_urls)
-                existing = getattr(request, "additional_instructions", None) or ""
-                request = request.model_copy(update={"additional_instructions": (existing + "\n\n" + note).strip()})
-            return await original_handler(request, token)
+            request, working_directory = _prepare_request(request)
+            with _working_directory_scope(working_directory):
+                return await original_handler(request, token)
 
         return handler
 
     eh.make_response_endpoint = patched_make_response_endpoint
     eh.make_stream_endpoint = patched_make_stream_endpoint
     eh.make_agui_chat_endpoint = patched_make_agui_endpoint
+
+
+def _prepare_request(request):
+    updates = {}
+    working_directory, client_config = extract_working_directory_from_client_config(
+        getattr(request, "client_config", None)
+    )
+    if client_config != getattr(request, "client_config", None):
+        updates["client_config"] = client_config
+
+    if getattr(request, "file_urls", None):
+        note = _build_attachment_note(request.file_urls)
+        existing = getattr(request, "additional_instructions", None) or ""
+        updates["additional_instructions"] = (existing + "\n\n" + note).strip()
+
+    if updates:
+        request = request.model_copy(update=updates)
+    return request, working_directory
+
+
+@contextmanager
+def _working_directory_scope(working_directory: str | None):
+    token = set_current_working_directory(working_directory)
+    try:
+        yield
+    finally:
+        reset_current_working_directory(token)
+
+
+async def _with_workspace_context(body_iterator, working_directory: str | None):
+    with _working_directory_scope(working_directory):
+        async for chunk in body_iterator:
+            yield chunk
 
 
 async def _with_sse_heartbeats(body_iterator, interval_seconds: float = 10.0):

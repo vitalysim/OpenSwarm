@@ -9,8 +9,11 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
 from agency_swarm.integrations.fastapi import run_fastapi
+from patches.patch_file_attachment_refs import apply_file_attachment_reference_patch
 from patches.patch_openswarm_model_control import install_factory_model_control_routes
 from swarm_registry import get_registered_agency_factories
+
+apply_file_attachment_reference_patch()
 
 
 if __name__ == "__main__":

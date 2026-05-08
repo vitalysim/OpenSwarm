@@ -1,6 +1,6 @@
 from agency_swarm import Agent
 from agency_swarm.tools import IPythonInterpreter
-from shared_tools import WebResearchSearch
+from shared_tools import ListOpenSwarmSkills, LoadOpenSwarmSkill, WebResearchSearch
 from virtual_assistant.tools.ScholarSearch import ScholarSearch
 
 from config import get_agent_model, get_agent_model_settings
@@ -15,7 +15,7 @@ def create_deep_research() -> Agent:
         description="Comprehensive deep research agent that conducts thorough research on any topic.",
         instructions="./instructions.md",
         files_folder="./files",
-        tools=[WebResearchSearch, ScholarSearch, IPythonInterpreter],
+        tools=[ListOpenSwarmSkills, LoadOpenSwarmSkill, WebResearchSearch, ScholarSearch, IPythonInterpreter],
         model=get_agent_model(MODEL_ENV_VAR),
         model_settings=get_agent_model_settings(MODEL_ENV_VAR, reasoning_effort="high"),
         conversation_starters=[

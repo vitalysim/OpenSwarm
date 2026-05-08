@@ -19,6 +19,7 @@ from google import genai
 
 from agency_swarm import ToolOutputText, ToolOutputImage
 from shared_tools.model_availability import video_model_availability_message
+from workspace_context import get_artifact_root, resolve_input_path
 
 from .image_utils import (
     load_image_by_name,
@@ -45,12 +46,13 @@ def is_seedance_model(model: str) -> bool:
     return model.startswith("seedance-")
 
 
-if os.path.isfile("/.dockerenv"):
-    MNT_DIR = Path("/app/mnt")
-else:
-    MNT_DIR = Path(__file__).parent.parent.parent.parent / "mnt"
+def get_default_videos_dir() -> str:
+    videos_dir = get_artifact_root() / "generated_videos"
+    videos_dir.mkdir(parents=True, exist_ok=True)
+    return str(videos_dir)
 
-VIDEO_DIR = str(MNT_DIR / "generated_videos")  # fallback when no product_name is given
+
+VIDEO_DIR = get_default_videos_dir()
 
 
 def get_videos_dir(product_name: str) -> str:
@@ -63,7 +65,7 @@ def get_videos_dir(product_name: str) -> str:
     Returns:
         Path to product's generated_videos directory
     """
-    videos_dir = MNT_DIR / product_name / "generated_videos"
+    videos_dir = get_artifact_root() / product_name / "generated_videos"
     videos_dir.mkdir(parents=True, exist_ok=True)
     return str(videos_dir)
 
@@ -184,7 +186,7 @@ def resolve_input_reference(reference: Optional[str], target_size: Optional[str]
             filename = Path(parsed.path).name or "reference.png"
     else:
         # Try as full path first
-        path = Path(reference).expanduser().resolve()
+        path = resolve_input_path(reference)
         
         if path.exists():
             # Handle full path
@@ -202,9 +204,8 @@ def resolve_input_reference(reference: Optional[str], target_size: Optional[str]
                 images_dir = get_images_dir(product_name)
                 videos_dir = get_videos_dir(product_name)
             else:
-                # Fallback to legacy paths if no product_name provided
-                images_dir = IMAGES_DIR
-                videos_dir = VIDEO_DIR
+                images_dir = get_default_images_dir()
+                videos_dir = get_default_videos_dir()
             
             # Try in generated_images directory first
             logger.info(f"Looking for image '{reference}' in {images_dir}...")

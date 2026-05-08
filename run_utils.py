@@ -6,6 +6,16 @@ import shutil
 import tempfile
 from pathlib import Path
 
+_TUI_STALENESS_SOURCE_RELATIVE_PATHS = (
+    "packages/openswarm-tui/packages/opencode/src/agency-swarm/adapter.ts",
+    "packages/openswarm-tui/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx",
+    "packages/openswarm-tui/packages/opencode/src/cli/cmd/tui/util/skill-directive.ts",
+    "packages/openswarm-tui/packages/opencode/src/cli/cmd/tui/util/agency-target.ts",
+    "packages/openswarm-tui/packages/opencode/src/skill/index.ts",
+    "packages/openswarm-tui/packages/opencode/src/session/agency-swarm.ts",
+)
+
+
 def _resolve_bin_name() -> str:
     """Return the platform+arch-specific TUI binary filename."""
     import platform
@@ -30,19 +40,70 @@ def _resolve_dist_dirname() -> str:
     return f"agentswarm-cli-linux-{arch}"
 
 
-def _resolve_local_tui_bin() -> Path | None:
-    """Locate a usable local TUI binary, preferring a release-style drop at the repo root."""
-    repo = Path(__file__).resolve().parent
+def _resolve_local_tui_bin(repo: Path | None = None) -> Path | None:
+    """Locate a usable local TUI binary, preferring a freshly built dev binary."""
+    repo = repo or Path(__file__).resolve().parent
     bin_filename = "agentswarm.exe" if sys.platform == "win32" else "agentswarm"
     candidates = [
-        repo / _resolve_bin_name(),
         repo / "packages" / "openswarm-tui" / "packages" / "opencode"
             / "dist" / _resolve_dist_dirname() / "bin" / bin_filename,
+        repo / _resolve_bin_name(),
     ]
     for candidate in candidates:
-        if candidate.exists():
+        if candidate.is_file():
             return candidate
     return None
+
+
+def _is_dev_tui_bin(path: Path, repo: Path | None = None) -> bool:
+    repo = repo or Path(__file__).resolve().parent
+    dev_dist = (
+        repo / "packages" / "openswarm-tui" / "packages" / "opencode"
+        / "dist" / _resolve_dist_dirname()
+    )
+    try:
+        path.resolve().relative_to(dev_dist.resolve())
+        return True
+    except ValueError:
+        return False
+    except OSError:
+        return False
+
+
+def _local_tui_staleness_message(path: Path, repo: Path | None = None) -> str | None:
+    repo = repo or Path(__file__).resolve().parent
+    if not _is_dev_tui_bin(path, repo):
+        return None
+    try:
+        binary_mtime = path.stat().st_mtime
+    except OSError:
+        return None
+
+    newest_source: Path | None = None
+    newest_mtime = binary_mtime
+    for relative in _TUI_STALENESS_SOURCE_RELATIVE_PATHS:
+        source = repo / relative
+        try:
+            mtime = source.stat().st_mtime
+        except OSError:
+            continue
+        if mtime > newest_mtime:
+            newest_mtime = mtime
+            newest_source = source
+
+    if newest_source is None:
+        return None
+    return (
+        "Warning: the local OpenSwarm TUI binary is older than recent TUI source changes. "
+        "Run `npm run build:tui` before launching to pick up the latest TUI UI. "
+        f"Newest source: {newest_source.relative_to(repo)}"
+    )
+
+
+def _warn_if_local_tui_bin_stale(path: Path, repo: Path | None = None) -> None:
+    message = _local_tui_staleness_message(path, repo)
+    if message:
+        print(message, file=sys.stderr)
 
 
 def _ensure_node_playwright_browsers(repo: Path) -> None:
@@ -253,6 +314,13 @@ def _configure_tui_backend_auth_env() -> None:
     )
 
 
+def _configure_openswarm_skills_env() -> None:
+    from openswarm_skill_registry import get_skills_root
+
+    os.environ["OPENSWARM_SKILLS_DIR"] = str(get_skills_root())
+    os.environ.setdefault("OPENCODE_DISABLE_EXTERNAL_SKILLS", "true")
+
+
 def _configure_demo_console() -> None:
     """
     Terminal demo runs can stream stdout/stderr into a UI that expects structured output.
@@ -315,6 +383,7 @@ def main() -> None:
         local_exe = _resolve_local_tui_bin()
         if local_exe is not None:
             os.environ["AGENTSWARM_BIN"] = str(local_exe)
+            _warn_if_local_tui_bin_stale(local_exe)
 
     # Disable OpenAI Agents SDK tracing for terminal demo runs.
     try:
@@ -350,6 +419,7 @@ def main() -> None:
 
         print(build_integration_summary())
         print()
+        _configure_openswarm_skills_env()
         _configure_tui_backend_auth_env()
 
         agency = create_agency()

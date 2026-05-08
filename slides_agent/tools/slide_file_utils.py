@@ -7,6 +7,8 @@ from pathlib import Path
 import re
 import uuid
 
+from workspace_context import get_artifact_root
+
 
 _SENTINEL_RE = re.compile(
     r'<!-- css-snapshot:([^:\n]+):start -->\s*<style>(.*?)</style>\s*<!-- css-snapshot:\1:end -->',
@@ -45,7 +47,7 @@ class SlideFile:
 
 
 def get_mnt_dir() -> Path:
-    return Path("/app/mnt") if Path("/.dockerenv").is_file() else Path(__file__).parents[2] / "mnt"
+    return get_artifact_root()
 
 
 def get_project_dir(project_name: str) -> Path:

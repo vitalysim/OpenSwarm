@@ -2,6 +2,7 @@ from agency_swarm import Agent
 from dotenv import load_dotenv
 
 from config import get_agent_model, get_agent_model_settings
+from shared_tools import ListOpenSwarmSkills, LoadOpenSwarmSkill
 
 load_dotenv()
 
@@ -18,6 +19,7 @@ def create_orchestrator() -> Agent:
         instructions="./instructions.md",
         model=get_agent_model(MODEL_ENV_VAR),
         model_settings=get_agent_model_settings(MODEL_ENV_VAR, reasoning_effort="medium"),
+        tools=[ListOpenSwarmSkills, LoadOpenSwarmSkill],
         conversation_starters=[
             "What can this agency do?",
             "Build a full launch package: research, slides, docs, and creative assets.",

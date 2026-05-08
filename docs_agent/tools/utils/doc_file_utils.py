@@ -3,9 +3,11 @@
 import re
 from pathlib import Path
 
+from workspace_context import get_artifact_root
+
 
 def get_mnt_dir() -> Path:
-    return Path("/app/mnt") if Path("/.dockerenv").is_file() else Path(__file__).parents[3] / "mnt"
+    return get_artifact_root()
 
 
 def get_project_dir(project_name: str) -> Path:

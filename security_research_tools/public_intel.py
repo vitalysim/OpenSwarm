@@ -16,9 +16,12 @@ from dotenv import load_dotenv
 from pydantic import Field, model_validator
 import requests
 
+from workspace_context import get_artifact_root, has_active_working_directory
+
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-_SECURITY_WORKSPACE = _REPO_ROOT / "research_workspace" / "security"
+_DEFAULT_SECURITY_WORKSPACE = _REPO_ROOT / "research_workspace" / "security"
+_SECURITY_WORKSPACE = _DEFAULT_SECURITY_WORKSPACE
 _DEFAULT_TIMEOUT = 30
 
 
@@ -516,9 +519,18 @@ def _external_url(item: dict[str, Any], source_name: str) -> str:
 
 
 def _ensure_workspace() -> Path:
+    base = _security_workspace()
     for child in ("notes", "resources", "progress", "scratch"):
-        (_SECURITY_WORKSPACE / child).mkdir(parents=True, exist_ok=True)
-    return _SECURITY_WORKSPACE
+        (base / child).mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def _security_workspace() -> Path:
+    if _SECURITY_WORKSPACE != _DEFAULT_SECURITY_WORKSPACE:
+        return _SECURITY_WORKSPACE
+    if has_active_working_directory():
+        return get_artifact_root() / "research_workspace" / "security"
+    return _DEFAULT_SECURITY_WORKSPACE
 
 
 def _safe_workspace_path(relative_path: str) -> Path:

@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test"
 import {
   buildAgencyTargetOptions,
   displayRunFrameworkContext,
+  displayRunOnlyAgentLabel,
+  readAgencyProviderOptions,
   resolveAgencyHandoffRecipientFromMessages,
   resolveAgencyRouteSelection,
   resolveAgencyTargetFromPicker,
@@ -9,6 +11,19 @@ import {
 } from "../../../src/cli/cmd/tui/util/agency-target"
 
 describe("agency target options", () => {
+  test("reads configured working directory from provider options", () => {
+    const options = readAgencyProviderOptions({
+      configuredProvider: {
+        options: {
+          baseURL: "http://127.0.0.1:18080",
+          workingDirectory: "/tmp/current-project",
+        },
+      },
+    })
+
+    expect(options.workingDirectory).toBe("/tmp/current-project")
+  })
+
   test("clears stale snake_case recipient state when /agents switches recipients", () => {
     const options = buildAgencyTargetOptions({
       providerOptions: {
@@ -580,5 +595,35 @@ describe("displayRunFrameworkContext", () => {
 
   test("returns undefined when nothing is available", () => {
     expect(displayRunFrameworkContext({ frameworkMode: true })).toBeUndefined()
+  })
+})
+
+describe("displayRunOnlyAgentLabel", () => {
+  test("uses the selected swarm/agent label for framework runs", () => {
+    expect(
+      displayRunOnlyAgentLabel({
+        frameworkMode: true,
+        recipientLabel: "Swarm: Security Research Swarm · Threat Intelligence Agent",
+        localAgentName: "build",
+      }),
+    ).toBe("Swarm: Security Research Swarm · Threat Intelligence Agent")
+  })
+
+  test("does not fall back to the generic Run label in framework mode", () => {
+    expect(
+      displayRunOnlyAgentLabel({
+        frameworkMode: true,
+        localAgentName: "build",
+      }),
+    ).toBe("Swarm: Choose swarm")
+  })
+
+  test("keeps the local agent label outside framework mode", () => {
+    expect(
+      displayRunOnlyAgentLabel({
+        frameworkMode: false,
+        localAgentName: "custom agent",
+      }),
+    ).toBe("Custom Agent")
   })
 })

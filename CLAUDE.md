@@ -13,6 +13,22 @@ The following files can be read on demand, depending on the task at hand:
 - `.cursor/commands/write-instructions.md` - how to write effective instructions for AI agents
 - `.cursor/commands/create-prd.md` - how to create a PRD for an agent (use for complex multi agent systems)
 
+## OpenSwarm Project Context
+
+This repo owns a patched AgentSwarm/OpenCode TUI fork in `packages/openswarm-tui/`. Treat it as controlled project source, not as a read-only upstream package. OpenSwarm-specific TUI patches include swarm switching, active swarm/agent/model display, subscription-backed model routing, and current-working-directory controls.
+
+OpenSwarm also owns a provider-neutral skill layer in `openswarm_skills/`. Agents consume those skills through `ListOpenSwarmSkills` and `LoadOpenSwarmSkill`, so the same workflow instructions work with OpenAI, Codex subscription, Claude Code subscription, Anthropic API, and future model backends. Skills v1 are instructions and read-only resources only; do not execute scripts from skill folders.
+
+When changing TUI behavior:
+
+1. Edit source under `packages/openswarm-tui/packages/opencode/`.
+2. Rebuild from the repo root with `npm run build:tui`.
+3. Restart OpenSwarm so the launcher uses the rebuilt `dist/.../bin/agentswarm` binary.
+4. Do not commit generated TUI binaries or root `openswarm-tui-*` release drops unless the user explicitly asks for release artifacts.
+5. Use targeted Bun tests and Agent Swarm TUI E2E tests for visible terminal behavior.
+
+If a TUI feature exists in source but is missing in the running app, first suspect a stale local TUI binary and rebuild it.
+
 ## Background
 
 Agency Swarm is an open-source framework designed for orchestrating and managing multiple AI agents, built upon the OpenAI Assistants API. Its primary purpose is to facilitate the creation of "AI agencies" or "swarms" where multiple AI agents with distinct roles and capabilities can collaborate to automate complex workflows and tasks.

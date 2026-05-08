@@ -23,6 +23,7 @@ class AgentModelDefinition:
     reasoning_effort: str | None = "medium"
     verbosity: str | None = None
     truncation: str | None = None
+    setup_label: str | None = None
 
 
 AGENT_MODEL_DEFINITIONS: tuple[AgentModelDefinition, ...] = (
@@ -46,6 +47,13 @@ SECURITY_RESEARCH_AGENT_MODEL_DEFINITIONS: tuple[AgentModelDefinition, ...] = (
     AgentModelDefinition("OSINT Enrichment Specialist", "OSINT_ENRICHMENT_SPECIALIST_MODEL", reasoning_effort="medium", truncation="auto"),
     AgentModelDefinition("Security Lab Analyst", "SECURITY_LAB_ANALYST_MODEL", reasoning_effort="high", truncation="auto"),
     AgentModelDefinition("Technical Blog Writer", "TECHNICAL_BLOG_WRITER_MODEL", reasoning_effort="medium", truncation="auto"),
+    AgentModelDefinition(
+        "Slides Agent",
+        "SECURITY_RESEARCH_SLIDES_AGENT_MODEL",
+        reasoning_effort="high",
+        verbosity="medium",
+        setup_label="Security Research Slides Agent",
+    ),
     AgentModelDefinition("Security Visual Designer", "SECURITY_VISUAL_DESIGNER_MODEL", reasoning_effort="medium", truncation="auto"),
 )
 
@@ -55,7 +63,7 @@ SWARM_AGENT_MODEL_DEFINITIONS: dict[str, tuple[AgentModelDefinition, ...]] = {
 }
 
 AGENT_MODEL_ENV_VARS = [
-    (item.name, item.env_key)
+    (item.setup_label or item.name, item.env_key)
     for definitions in SWARM_AGENT_MODEL_DEFINITIONS.values()
     for item in definitions
 ]
@@ -77,6 +85,7 @@ SUBSCRIPTION_FIRST_MODELS = {
     "OSINT_ENRICHMENT_SPECIALIST_MODEL": "subscription/claude",
     "SECURITY_LAB_ANALYST_MODEL": "subscription/codex",
     "TECHNICAL_BLOG_WRITER_MODEL": "subscription/claude",
+    "SECURITY_RESEARCH_SLIDES_AGENT_MODEL": "subscription/claude",
     "SECURITY_VISUAL_DESIGNER_MODEL": "subscription/claude",
 }
 

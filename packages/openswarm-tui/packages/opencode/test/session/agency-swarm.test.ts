@@ -1191,6 +1191,67 @@ describe("session.agency-swarm", () => {
     })
   })
 
+  test("stream forwards configured working directory in client_config", async () => {
+    mockHistory()
+
+    let captured: Record<string, unknown> | undefined
+    AgencySwarmAdapter.streamRun = async function* (input) {
+      captured = input.clientConfig
+      yield { type: "end" }
+    } as typeof AgencySwarmAdapter.streamRun
+
+    const { input } = helper()
+    input.options.baseURL = "https://agency.example.com"
+    input.options.clientConfig = {
+      model: "gpt-5",
+    }
+    input.options.workingDirectory = "/tmp/current-project"
+
+    const stream = await SessionAgencySwarm.stream(input)
+    for await (const _event of stream.fullStream) {
+      // consume
+    }
+
+    expect(captured).toEqual({
+      model: "gpt-5",
+      openswarm_working_directory: "/tmp/current-project",
+    })
+  })
+
+  test("stream defaults working directory to the current local instance", async () => {
+    mockHistory()
+    spyOn(Auth, "all").mockImplementation(async () => ({})) as typeof Auth.all
+    spyOn(Provider, "list").mockImplementation(async () => ({})) as typeof Provider.list
+    spyOn(Env, "all").mockImplementation(async () => ({})) as typeof Env.all
+
+    let captured: Record<string, unknown> | undefined
+    AgencySwarmAdapter.streamRun = async function* (input) {
+      captured = input.clientConfig
+      yield { type: "end" }
+    } as typeof AgencySwarmAdapter.streamRun
+
+    await using tmp = await tmpdir()
+    await Instance.provide({
+      directory: tmp.path,
+      fn: async () => {
+        const { input } = helper()
+        input.options.clientConfig = {
+          model: "gpt-5",
+        }
+
+        const stream = await SessionAgencySwarm.stream(input)
+        for await (const _event of stream.fullStream) {
+          // consume
+        }
+      },
+    })
+
+    expect(captured).toEqual({
+      model: "gpt-5",
+      openswarm_working_directory: tmp.path,
+    })
+  })
+
   test("stream skips metadata lookup when remote non-openai sessions have no generated auth payload", async () => {
     mockHistory()
     spyOn(Auth, "all").mockImplementation(async () => ({

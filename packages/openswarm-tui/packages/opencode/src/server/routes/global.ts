@@ -15,6 +15,7 @@ import { Log } from "../../util"
 import { lazy } from "../../util/lazy"
 import { Config } from "../../config"
 import { errors } from "../error"
+import { setRuntimeConfigContent } from "@/config/runtime-content"
 
 const log = Log.create({ service: "server" })
 
@@ -180,6 +181,32 @@ export const GlobalRoutes = lazy(() =>
         const config = c.req.valid("json")
         const next = await AppRuntime.runPromise(Config.Service.use((cfg) => cfg.updateGlobal(config)))
         return c.json(next)
+      },
+    )
+    .patch(
+      "/config/content",
+      describeRoute({
+        summary: "Update runtime config content",
+        description: "Update OPENCODE_CONFIG_CONTENT for the running worker and reload instances.",
+        operationId: "global.config.content.update",
+        responses: {
+          200: {
+            description: "Successfully updated runtime config content",
+            content: {
+              "application/json": {
+                schema: resolver(z.boolean()),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      validator("json", Config.Info.zod),
+      async (c) => {
+        const config = c.req.valid("json")
+        setRuntimeConfigContent(config)
+        await AppRuntime.runPromise(Config.Service.use((cfg) => cfg.invalidate(true)))
+        return c.json(true)
       },
     )
     .post(

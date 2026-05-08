@@ -18,6 +18,8 @@ import { Auth } from "@/auth"
 import { Env } from "@/env"
 import { CODEX_API_BASE_URL, extractAccountId, refreshAccessToken } from "@/plugin/codex"
 import { Provider } from "@/provider/provider"
+import { Instance } from "@/project/instance"
+import { AgencySwarmRunSession } from "@/agency-swarm/run-session"
 import { Session } from "@/session"
 import { MessageV2 } from "@/session/message-v2"
 import { SessionID } from "@/session/schema"
@@ -63,6 +65,7 @@ export namespace SessionAgencySwarm {
     fileIDs?: string[]
     generateChatName?: boolean
     clientConfig?: Record<string, unknown>
+    workingDirectory?: string
     /** When true, merge stored/env credentials into client_config for non-local base URLs (see also AGENTSWARM_FORWARD_UPSTREAM_CREDENTIALS). */
     forwardUpstreamCredentials?: boolean
     token?: string
@@ -116,6 +119,8 @@ export namespace SessionAgencySwarm {
       asBoolean(provider?.options?.["generateChatName"]) ?? asBoolean(provider?.options?.["generate_chat_name"])
     const rawClientConfig =
       asRecord(provider?.options?.["clientConfig"]) ?? asRecord(provider?.options?.["client_config"])
+    const rawWorkingDirectory =
+      asString(provider?.options?.["workingDirectory"]) ?? asString(provider?.options?.["working_directory"])
     const opts = provider?.options
     const rawForwardUpstream =
       opts?.["forwardUpstreamCredentials"] === true || opts?.["forward_upstream_credentials"] === true
@@ -132,6 +137,7 @@ export namespace SessionAgencySwarm {
       fileIDs: rawFileIDs.length > 0 ? rawFileIDs : undefined,
       generateChatName: rawGenerateChatName,
       clientConfig: rawClientConfig,
+      workingDirectory: rawWorkingDirectory || undefined,
       forwardUpstreamCredentials: rawForwardUpstream === true ? true : undefined,
       token: rawToken || undefined,
       discoveryTimeoutMs:
@@ -562,6 +568,18 @@ export namespace SessionAgencySwarm {
       )
     } catch {
       return false
+    }
+  }
+
+  function resolveWorkingDirectoryForRequest(options: RuntimeOptions): string | undefined {
+    if (options.workingDirectory) return options.workingDirectory
+    if (!isLocalAgencyURL(options.baseURL)) return undefined
+    const runProject = process.env[AgencySwarmRunSession.LOCAL_PROJECT_ENV]
+    if (runProject) return runProject
+    try {
+      return Instance.directory
+    } catch {
+      return undefined
     }
   }
 
@@ -1624,6 +1642,13 @@ export namespace SessionAgencySwarm {
         input.options.forwardUpstreamCredentials,
         sessionLitellmModel,
       )
+      const workingDirectory = resolveWorkingDirectoryForRequest(input.options)
+      const requestClientConfig = workingDirectory
+        ? {
+            ...(clientConfig ?? {}),
+            openswarm_working_directory: workingDirectory,
+          }
+        : clientConfig
 
       const hasCurrentFileAttachments = hasFileParts(input.userMessage)
       const hasRebuildableFileAttachments =
@@ -1707,7 +1732,7 @@ export namespace SessionAgencySwarm {
           token: input.options.token,
           fileURLs,
           generateChatName: input.options.generateChatName,
-          clientConfig,
+          clientConfig: requestClientConfig,
           abort: streamSignal,
         })) {
           if (frame.type === "meta") {

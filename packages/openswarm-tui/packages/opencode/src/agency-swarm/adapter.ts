@@ -667,6 +667,7 @@ export namespace AgencySwarmAdapter {
     const litellmKeys = asRecord(value["litellm_keys"]) ?? asRecord(value["litellmKeys"])
     const headers = readStringRecord(value["default_headers"]) ?? readStringRecord(value["defaultHeaders"])
     const model = asString(value["model"])
+    const workingDirectory = asString(value["openswarm_working_directory"])
 
     const payload: Record<string, unknown> = {}
     if (baseURL) payload["base_url"] = baseURL
@@ -674,6 +675,7 @@ export namespace AgencySwarmAdapter {
     if (litellmKeys && Object.keys(litellmKeys).length > 0) payload["litellm_keys"] = litellmKeys
     if (headers) payload["default_headers"] = headers
     if (model) payload["model"] = model
+    if (workingDirectory) payload["openswarm_working_directory"] = workingDirectory
 
     if (Object.keys(payload).length === 0) return undefined
     return sanitizeClientConfigForTransport(payload)

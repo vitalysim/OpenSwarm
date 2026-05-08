@@ -1,3 +1,12 @@
+# OpenSwarm TUI fork
+
+This package is vendored inside OpenSwarm and is patched for OpenSwarm-specific terminal behavior. Treat it as controlled project source, not as a read-only upstream dependency.
+
+- OpenSwarm-specific TUI patches include swarm selection, active swarm/agent/model display, subscription-backed routing, and working-directory controls.
+- After TUI source edits, rebuild from the OpenSwarm repo root with `npm run build:tui`; otherwise local launches can keep using a stale `dist/.../bin/agentswarm` binary.
+- Do not commit generated `dist/**` binaries or root `openswarm-tui-*` release drops unless the user explicitly asks for release artifacts.
+- For visible terminal behavior, validate with targeted tests plus `bun test --timeout 180000 --max-concurrency=1 ../../e2e/agent-swarm-tui` from this package.
+
 # opencode database guide
 
 ## Database

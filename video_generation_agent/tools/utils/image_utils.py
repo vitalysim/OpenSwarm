@@ -6,23 +6,26 @@ from pathlib import Path
 import asyncio
 from PIL import Image
 
+from workspace_context import get_artifact_root
+
 logger = logging.getLogger(__name__)
 
 MODEL_NAME = "gemini-2.5-flash-image"
 
-if os.path.isfile("/.dockerenv"):
-    MNT_DIR = Path("/app/mnt")
-else:
-    MNT_DIR = Path(__file__).parent.parent.parent.parent / "mnt"
+def get_default_images_dir() -> str:
+    images_dir = get_artifact_root() / "generated_images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+    return str(images_dir)
 
-IMAGES_DIR = str(MNT_DIR / "generated_images")
+
+IMAGES_DIR = get_default_images_dir()
 
 OUTPUT_FORMAT = "png"
 
 
 def get_images_dir(product_name: str) -> str:
     """Return (and create) the images directory for a specific product."""
-    images_dir = MNT_DIR / product_name / "generated_images"
+    images_dir = get_artifact_root() / product_name / "generated_images"
     images_dir.mkdir(parents=True, exist_ok=True)
     return str(images_dir)
 
@@ -111,7 +114,7 @@ def split_results_and_usage(raw_results):
 
 def process_variant_result(variant_num, image, file_name, num_variants, compress_func, images_dir=None):
     """Save a variant image and return its result dict."""
-    save_dir = images_dir if images_dir is not None else IMAGES_DIR
+    save_dir = images_dir if images_dir is not None else get_default_images_dir()
     image_name, filename = create_filename(file_name, variant_num, num_variants, OUTPUT_FORMAT)
     filepath = os.path.join(save_dir, filename)
     image.save(filepath, OUTPUT_FORMAT)

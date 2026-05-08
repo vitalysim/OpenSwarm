@@ -323,6 +323,9 @@ describe("prompt framework-mode footer", () => {
         status: () => undefined,
       },
       instance: {
+        path: () => ({
+          directory: "/tmp",
+        }),
         directory: () => "/tmp",
       },
     } as any)
@@ -350,9 +353,11 @@ describe("prompt framework-mode footer", () => {
     await rendered.renderOnce()
 
     const frame = rendered.captureCharFrame()
+    expect(frame).toContain("Swarm: Demo Agency")
     expect(frame).toContain("Orchestrator")
     expect(frame).toContain("tab agents")
     expect(frame).not.toContain("orchestrator-slug")
+    expect(frame).not.toContain("Agency Swarm Default")
     expect(frame).not.toContain("Agent Builder")
     expect(frame).not.toContain("recipients")
 
@@ -392,6 +397,7 @@ describe("prompt framework-mode footer", () => {
     await rendered.renderOnce()
 
     const handoffFrame = rendered.captureCharFrame()
+    expect(handoffFrame).toContain("Swarm: Demo Agency")
     expect(handoffFrame).toContain("Slides Agent")
     expect(updateGlobalConfig).not.toHaveBeenCalled()
 

@@ -12,6 +12,7 @@ from pathlib import Path
 
 from agency_swarm.tools import BaseTool
 from pydantic import Field
+from workspace_context import resolve_input_path, resolve_output_path
 
 def _normalize_mnt_path(p: str) -> str:
     raw = (p or "").strip()
@@ -35,7 +36,7 @@ class CopyFile(BaseTool):
     """
     Copy a file from source_path to destination_path.
 
-    Both paths must be absolute. destination_path can be either a full file path
+    Paths can be absolute or relative to the current OpenSwarm working directory. destination_path can be either a full file path
     or a directory path. Destination directories are created automatically. Use
     this to copy uploaded user files into project folders or copy generated files
     to a user-requested output location.
@@ -43,20 +44,20 @@ class CopyFile(BaseTool):
 
     source_path: str = Field(
         ...,
-        description="Absolute path to the file to copy.",
+        description="Path to the file to copy. Relative paths resolve from the current working directory.",
     )
     destination_path: str = Field(
         ...,
         description=(
-            "Absolute path where the file should be copied to. Provide either a "
+            "Path where the file should be copied to. Relative paths resolve from the current working directory. Provide either a "
             "full file path including filename, or a directory path to keep the "
             "source filename."
         ),
     )
 
     def run(self) -> str:
-        src = Path(_normalize_mnt_path(self.source_path))
-        dst = Path(_normalize_mnt_path(self.destination_path))
+        src = resolve_input_path(_normalize_mnt_path(self.source_path))
+        dst = resolve_output_path(_normalize_mnt_path(self.destination_path))
 
         if not src.exists():
             return f"Error: Source file not found: {src}"

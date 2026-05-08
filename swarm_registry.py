@@ -50,6 +50,7 @@ SWARM_REGISTRY: tuple[SwarmRegistration, ...] = (
             "osint_enrichment_specialist",
             "security_lab_analyst",
             "technical_blog_writer",
+            "slides_agent",
             "security_visual_designer",
         ),
     ),
@@ -109,6 +110,7 @@ def create_security_research_agency(load_threads_callback=None) -> Any:
     from security_research_lead import create_security_research_lead  # noqa: PLC0415
     from security_research_orchestrator import create_security_research_orchestrator  # noqa: PLC0415
     from security_visual_designer import create_security_visual_designer  # noqa: PLC0415
+    from slides_agent import create_slides_agent  # noqa: PLC0415
     from technical_blog_writer import create_technical_blog_writer  # noqa: PLC0415
     from threat_intelligence_analyst import create_threat_intelligence_analyst  # noqa: PLC0415
     from vulnerability_researcher import create_vulnerability_researcher  # noqa: PLC0415
@@ -120,6 +122,7 @@ def create_security_research_agency(load_threads_callback=None) -> Any:
     osint_specialist = create_osint_enrichment_specialist()
     lab_analyst = create_security_lab_analyst()
     blog_writer = create_technical_blog_writer()
+    slides_agent = create_slides_agent(model_env_var="SECURITY_RESEARCH_SLIDES_AGENT_MODEL")
     visual_designer = create_security_visual_designer()
 
     all_agents = [
@@ -130,6 +133,7 @@ def create_security_research_agency(load_threads_callback=None) -> Any:
         osint_specialist,
         lab_analyst,
         blog_writer,
+        slides_agent,
         visual_designer,
     ]
 

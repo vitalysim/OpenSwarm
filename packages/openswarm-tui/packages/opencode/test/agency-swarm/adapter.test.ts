@@ -281,6 +281,7 @@ describe("agency-swarm.adapter", () => {
       clientConfig: {
         baseURL: "https://proxy.example.com/v1",
         apiKey: "secret",
+        openswarm_working_directory: "/tmp/current-project",
         defaultHeaders: {
           "ChatGPT-Account-Id": "acct_123",
         },
@@ -308,6 +309,7 @@ describe("agency-swarm.adapter", () => {
       client_config: {
         base_url: "https://proxy.example.com/v1",
         api_key: "secret",
+        openswarm_working_directory: "/tmp/current-project",
         default_headers: {
           "ChatGPT-Account-Id": "acct_123",
         },

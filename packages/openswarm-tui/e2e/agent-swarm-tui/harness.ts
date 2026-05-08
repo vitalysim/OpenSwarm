@@ -8,7 +8,7 @@ const packageRoot = path.join(repoRoot, "packages", "opencode")
 const modelsFixture = path.join(packageRoot, "test", "tool", "fixtures", "models-api.json")
 const discoveryTimeoutMs = process.env.CI ? 5_000 : 500
 const initialOutputAttemptCount = process.env.CI ? 3 : 2
-const initialOutputTimeoutMs = process.env.CI ? 45_000 : 5_000
+const initialOutputTimeoutMs = process.env.CI ? 45_000 : 30_000
 const initialOutputRetryDelayMs = process.env.CI ? 500 : 250
 
 export type AgencyProtocolServer = {
@@ -22,7 +22,7 @@ export type AgencyProtocolServer = {
   stop(): void
 }
 
-type AgencyServerScenario = "qa" | "tui-demo"
+type AgencyServerScenario = "qa" | "tui-demo" | "multi-swarm"
 
 export async function startAgencyProtocolServer(
   input: { scenario?: AgencyServerScenario } = {},
@@ -34,24 +34,34 @@ export async function startAgencyProtocolServer(
     port: 0,
     fetch: async (request) => {
       const url = new URL(request.url)
-      const fixture = scenario === "tui-demo" ? tuiDemoAgencyFixture : qaAgencyFixture
+      const fixture =
+        scenario === "tui-demo"
+          ? tuiDemoAgencyFixture
+          : scenario === "multi-swarm"
+            ? multiSwarmAgencyFixture
+            : qaAgencyFixture
+      const agencyIDs = fixture.agencyIDs ?? [fixture.agencyID]
 
       if (url.pathname === "/openapi.json") {
         return Response.json({
           openapi: "3.1.0",
-          paths: {
-            [`/${fixture.agencyID}/get_metadata`]: { get: {} },
-            [`/${fixture.agencyID}/get_response_stream`]: { post: {} },
-            [`/${fixture.agencyID}/cancel_response_stream`]: { post: {} },
-          },
+          paths: Object.fromEntries(
+            agencyIDs.flatMap((agencyID) => [
+              [`/${agencyID}/get_metadata`, { get: {} }],
+              [`/${agencyID}/get_response_stream`, { post: {} }],
+              [`/${agencyID}/cancel_response_stream`, { post: {} }],
+            ]),
+          ),
         })
       }
 
-      if (url.pathname === `/${fixture.agencyID}/get_metadata`) {
-        return Response.json(fixture.metadata)
+      const metadataAgencyID = agencyIDs.find((agencyID) => url.pathname === `/${agencyID}/get_metadata`)
+      if (metadataAgencyID) {
+        return Response.json(fixture.metadataFor?.(metadataAgencyID) ?? fixture.metadata)
       }
 
-      if (url.pathname === `/${fixture.agencyID}/get_response_stream`) {
+      const streamAgencyID = agencyIDs.find((agencyID) => url.pathname === `/${agencyID}/get_response_stream`)
+      if (streamAgencyID) {
         const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
         let releaseStream!: () => void
         const streamReleased = new Promise<void>((resolve) => {
@@ -68,7 +78,7 @@ export async function startAgencyProtocolServer(
           resolveStreamClosed()
         }
         requests.push({ path: url.pathname, body, releaseStream, streamClosed })
-        const responseBody = await fixture.stream(body, requests.length, streamReleased, closeStream)
+        const responseBody = await fixture.stream(body, requests.length, streamReleased, closeStream, streamAgencyID)
         if (!(responseBody instanceof ReadableStream)) closeStream()
         return new Response(responseBody, {
           headers: {
@@ -78,7 +88,7 @@ export async function startAgencyProtocolServer(
         })
       }
 
-      if (url.pathname === `/${fixture.agencyID}/cancel_response_stream`) {
+      if (agencyIDs.some((agencyID) => url.pathname === `/${agencyID}/cancel_response_stream`)) {
         return Response.json({ cancelled: true })
       }
 
@@ -97,6 +107,10 @@ export async function startAgencyProtocolServer(
 
 export async function startTuiDemoAgencyServer(): Promise<AgencyProtocolServer> {
   return startAgencyProtocolServer({ scenario: "tui-demo" })
+}
+
+export async function startMultiSwarmAgencyServer(): Promise<AgencyProtocolServer> {
+  return startAgencyProtocolServer({ scenario: "multi-swarm" })
 }
 
 export type TuiProcess = {
@@ -283,12 +297,15 @@ export async function writeAgencyProject(dir: string) {
 
 type AgencyFixture = {
   agencyID: string
+  agencyIDs?: string[]
   metadata: Record<string, unknown>
+  metadataFor?: (agencyID: string) => Record<string, unknown>
   stream(
     body: Record<string, unknown>,
     requestCount: number,
     streamReleased: Promise<void>,
     closeStream: () => void,
+    agencyID: string,
   ): BodyInit | Promise<BodyInit>
 }
 
@@ -705,6 +722,64 @@ const tuiDemoAgencyFixture: AgencyFixture = {
       ["end", {}],
     ])
   },
+}
+
+const multiSwarmAgencyFixture: AgencyFixture = {
+  agencyID: "open-swarm",
+  agencyIDs: ["open-swarm", "security-research"],
+  metadata: multiSwarmMetadata("OpenSwarm", "OpenSwarmLead", "General project coordination."),
+  metadataFor(agencyID) {
+    if (agencyID === "security-research") {
+      return multiSwarmMetadata("Security Research")
+    }
+    return multiSwarmMetadata("OpenSwarm", "OpenSwarmLead", "General project coordination.")
+  },
+  stream(body, requestCount, _streamReleased, _closeStream, agencyID) {
+    const agent = agencyID === "security-research" ? "SecurityResearchLead" : "OpenSwarmLead"
+    return sse([
+      ["meta", { run_id: `run_multi_swarm_${requestCount}` }],
+      [
+        "messages",
+        {
+          new_messages: [
+            {
+              id: `msg_multi_swarm_${requestCount}`,
+              type: "message",
+              role: "assistant",
+              agent,
+              content: [{ type: "output_text", text: `Response from ${agencyID}.` }],
+            },
+          ],
+        },
+      ],
+      ["end", {}],
+    ])
+  },
+}
+
+function multiSwarmMetadata(agencyName: string, leadAgent?: string, description?: string) {
+  return {
+    agency_swarm_version: "1.9.6",
+    metadata: {
+      agencyName,
+      agents: leadAgent ? [leadAgent] : [],
+      entryPoints: leadAgent ? [leadAgent] : [],
+    },
+    nodes: leadAgent
+      ? [
+          {
+            id: leadAgent,
+            type: "agent",
+            data: {
+              label: leadAgent,
+              description,
+              isEntryPoint: true,
+              model: "gpt-5.4-mini",
+            },
+          },
+        ]
+      : [],
+  }
 }
 
 function sse(events: Array<[event: string, data: Record<string, unknown>]>) {

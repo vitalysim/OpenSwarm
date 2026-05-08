@@ -24,6 +24,8 @@ const EXTERNAL_DIRS = [".claude", ".agents"]
 const EXTERNAL_SKILL_PATTERN = "skills/**/SKILL.md"
 const OPENCODE_SKILL_PATTERN = "{skill,skills}/**/SKILL.md"
 const SKILL_PATTERN = "**/SKILL.md"
+const OPENSWARM_SKILL_PATTERN = "*/SKILL.md"
+const OPENSWARM_SKILLS_DIR_ENV = "OPENSWARM_SKILLS_DIR"
 
 export const Info = Schema.Struct({
   name: Schema.String,
@@ -151,6 +153,18 @@ const discoverSkills = Effect.fnUntraced(function* (
   worktree: string,
 ) {
   const state: ScanState = { matches: new Set(), dirs: new Set() }
+  const openswarmSkillsDir = process.env[OPENSWARM_SKILLS_DIR_ENV]
+  if (openswarmSkillsDir) {
+    const expanded = openswarmSkillsDir.startsWith("~/")
+      ? path.join(os.homedir(), openswarmSkillsDir.slice(2))
+      : openswarmSkillsDir
+    const dir = path.isAbsolute(expanded) ? expanded : path.join(worktree, expanded)
+    if (yield* fsys.isDir(dir)) yield* scan(state, dir, OPENSWARM_SKILL_PATTERN, { scope: "openswarm" })
+    return {
+      matches: Array.from(state.matches),
+      dirs: Array.from(state.dirs),
+    }
+  }
 
   if (!Flag.OPENCODE_DISABLE_EXTERNAL_SKILLS) {
     for (const dir of EXTERNAL_DIRS) {

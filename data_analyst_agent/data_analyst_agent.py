@@ -5,7 +5,16 @@ from agency_swarm.tools import (
     IPythonInterpreter,
     LoadFileAttachment,
 )
-from shared_tools import CopyFile, ExecuteTool, FindTools, ManageConnections, SearchTools, WebResearchSearch
+from shared_tools import (
+    CopyFile,
+    ExecuteTool,
+    FindTools,
+    ListOpenSwarmSkills,
+    LoadOpenSwarmSkill,
+    ManageConnections,
+    SearchTools,
+    WebResearchSearch,
+)
 
 from config import get_agent_model, get_agent_model_settings
 
@@ -21,6 +30,8 @@ def create_data_analyst() -> Agent:
         tools_folder=os.path.join(current_dir, "tools"),
         model=get_agent_model(MODEL_ENV_VAR),
         tools=[
+            ListOpenSwarmSkills,
+            LoadOpenSwarmSkill,
             WebResearchSearch,
             PersistentShellTool,
             IPythonInterpreter,

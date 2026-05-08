@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from agency_swarm import Agent
-from shared_tools import WebResearchSearch
+from shared_tools import ListOpenSwarmSkills, LoadOpenSwarmSkill, WebResearchSearch
 from security_research_tools import (
     CreateSecurityResearchDeliverable,
     LoadSecurityDesignLanguage,
@@ -24,6 +24,8 @@ def create_technical_blog_writer() -> Agent:
         model=get_agent_model(MODEL_ENV_VAR),
         model_settings=get_agent_model_settings(MODEL_ENV_VAR, reasoning_effort="medium", truncation="auto"),
         tools=[
+            ListOpenSwarmSkills,
+            LoadOpenSwarmSkill,
             WebResearchSearch,
             CreateSecurityResearchDeliverable,
             ManageSecurityResearchNote,

@@ -44,7 +44,7 @@ def test_factory_routes_are_isolated_by_route_agency_id(monkeypatch):
         "security-research": lambda **_: _agency(
             "Security Research",
             "security-research",
-            ["Security Research Orchestrator", "Vulnerability Researcher"],
+            ["Security Research Orchestrator", "Vulnerability Researcher", "Slides Agent"],
         ),
     }
 
@@ -59,5 +59,7 @@ def test_factory_routes_are_isolated_by_route_agency_id(monkeypatch):
     assert {item["name"] for item in security_state["agents"]} >= {
         "Security Research Orchestrator",
         "Vulnerability Researcher",
+        "Slides Agent",
     }
-    assert "Slides Agent" not in {item["name"] for item in security_state["agents"]}
+    security_slides = next(item for item in security_state["agents"] if item["name"] == "Slides Agent")
+    assert security_slides["envKey"] == "SECURITY_RESEARCH_SLIDES_AGENT_MODEL"

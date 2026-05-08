@@ -6,7 +6,16 @@ from agency_swarm.tools import (
 from dotenv import load_dotenv
 
 from config import get_agent_model, get_agent_model_settings
-from shared_tools import CopyFile, ExecuteTool, FindTools, ManageConnections, SearchTools, WebResearchSearch
+from shared_tools import (
+    CopyFile,
+    ExecuteTool,
+    FindTools,
+    ListOpenSwarmSkills,
+    LoadOpenSwarmSkill,
+    ManageConnections,
+    SearchTools,
+    WebResearchSearch,
+)
 
 load_dotenv()
 
@@ -26,6 +35,8 @@ def create_virtual_assistant() -> Agent:
         model=get_agent_model(MODEL_ENV_VAR),
         model_settings=get_agent_model_settings(MODEL_ENV_VAR, reasoning_effort="medium"),
         tools=[
+            ListOpenSwarmSkills,
+            LoadOpenSwarmSkill,
             WebResearchSearch,
             PersistentShellTool,
             IPythonInterpreter,

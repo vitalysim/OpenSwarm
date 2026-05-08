@@ -258,6 +258,14 @@ These rules apply to every file in the repo. Bullets that start with `In this do
 - `packages/opencode` is the Agent Swarm CLI core: command entry points, server routes, session flow, providers, storage, TUI control, and Agency Swarm integration.
 - `packages/app` is the shared Solid UI; `packages/desktop` and `packages/desktop-electron` wrap desktop surfaces around it.
 - `packages/sdk/js` and `packages/plugin` define generated client and extension surfaces that must stay aligned with server and transport contracts.
+
+## OpenSwarm Fork Context
+
+- This checkout is vendored inside OpenSwarm and intentionally patches the Agent Swarm/OpenCode TUI for OpenSwarm behavior.
+- Expected OpenSwarm-specific TUI changes include swarm selection, active swarm/agent/model display, subscription-backed routing, and working-directory controls.
+- After TUI source edits, rebuild from the OpenSwarm repo root with `npm run build:tui`; otherwise local launches can keep using a stale `dist/.../bin/agentswarm` binary.
+- Do not commit generated `dist/**` binaries or root `openswarm-tui-*` release drops unless the user explicitly asks for release artifacts.
+- For visible terminal behavior, validate with targeted tests plus `bun test --timeout 180000 --max-concurrency=1 ../../e2e/agent-swarm-tui` from `packages/opencode`.
 - `packages/web`, `packages/docs`, and `specs/` carry public docs and protocol specs; use package-local scripts from `package.json` for validation.
 - Agent Swarm terminal QA lives in `e2e/agent-swarm-tui` and should map fork-owned behavior back to `FORK_CHANGELOG.md` or `USER_FLOWS.md` when those files are in scope.
 

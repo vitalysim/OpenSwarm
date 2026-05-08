@@ -1,6 +1,6 @@
 from agency_swarm import Agent
 from agency_swarm.tools import LoadFileAttachment
-from shared_tools import CopyFile
+from shared_tools import CopyFile, ListOpenSwarmSkills, LoadOpenSwarmSkill
 
 from config import get_agent_model, get_agent_model_settings
 
@@ -14,7 +14,7 @@ def create_image_generation_agent() -> Agent:
         description="A specialized agent for image generation, editing, and composition.",
         instructions="instructions.md",
         tools_folder="./tools",
-        tools=[LoadFileAttachment, CopyFile],
+        tools=[ListOpenSwarmSkills, LoadOpenSwarmSkill, LoadFileAttachment, CopyFile],
         model=get_agent_model(MODEL_ENV_VAR),
         model_settings=get_agent_model_settings(MODEL_ENV_VAR, reasoning_effort="medium", truncation="auto"),
         conversation_starters=[

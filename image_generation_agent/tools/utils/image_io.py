@@ -10,6 +10,7 @@ import requests
 from PIL import Image
 
 from agency_swarm import ToolOutputImage, ToolOutputText
+from workspace_context import get_artifact_root, resolve_input_path
 
 
 DEFAULT_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
@@ -38,14 +39,8 @@ OPENAI_SIZE_BY_ASPECT_RATIO = {
     "3:2": "1536x1024",
 }
 
-if os.path.isfile("/.dockerenv"):
-    MNT_DIR = Path("/app/mnt")
-else:
-    MNT_DIR = Path(__file__).parent.parent.parent.parent / "mnt"
-
-
 def get_images_dir(product_name: str) -> Path:
-    images_dir = MNT_DIR / product_name / "generated_images"
+    images_dir = get_artifact_root() / product_name / "generated_images"
     images_dir.mkdir(parents=True, exist_ok=True)
     return images_dir
 
@@ -69,7 +64,7 @@ def resolve_image_reference(product_name: str, image_ref: str) -> tuple[Image.Im
         image = Image.open(io.BytesIO(response.content))
         return image.convert("RGB"), image_ref
 
-    candidate_path = Path(image_ref).expanduser().resolve()
+    candidate_path = resolve_input_path(image_ref)
     if candidate_path.exists():
         image = Image.open(candidate_path)
         return image.convert("RGB"), str(candidate_path)
@@ -305,4 +300,3 @@ def get_openai_size_for_aspect_ratio(aspect_ratio: str) -> str:
             f"Supported values: {sorted(OPENAI_SIZE_BY_ASPECT_RATIO.keys())}"
         )
     return size
-

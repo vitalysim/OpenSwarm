@@ -42,6 +42,22 @@ const withHome = <A, E, R>(home: string, self: Effect.Effect<A, E, R>) =>
       }),
   )
 
+const withEnv = <A, E, R>(key: string, value: string | undefined, self: Effect.Effect<A, E, R>) =>
+  Effect.acquireUseRelease(
+    Effect.sync(() => {
+      const prev = process.env[key]
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+      return prev
+    }),
+    () => self,
+    (prev) =>
+      Effect.sync(() => {
+        if (prev === undefined) delete process.env[key]
+        else process.env[key] = prev
+      }),
+  )
+
 describe("skill", () => {
   it.live("discovers skills from .opencode/skill/ directory", () =>
     provideTmpdirInstance(
@@ -187,6 +203,57 @@ description: A skill in the .claude/skills directory.
           expect(item).toBeDefined()
           expect(item!.location).toContain(path.join(".claude", "skills", "claude-skill", "SKILL.md"))
         }),
+      { git: true },
+    ),
+  )
+
+  it.live("uses OPENSWARM_SKILLS_DIR as the only skill source when configured", () =>
+    provideTmpdirInstance(
+      (dir) =>
+        withEnv(
+          "OPENSWARM_SKILLS_DIR",
+          path.join(dir, "openswarm_skills"),
+          Effect.gen(function* () {
+            yield* Effect.promise(() =>
+              Promise.all([
+                Bun.write(
+                  path.join(dir, "openswarm_skills", "openswarm-skill", "SKILL.md"),
+                  `---
+name: openswarm-skill
+description: Project-local OpenSwarm skill.
+---
+
+# OpenSwarm Skill
+`,
+                ),
+                Bun.write(
+                  path.join(dir, "openswarm_skills", "nested", "ignored-skill", "SKILL.md"),
+                  `---
+name: ignored-skill
+description: Nested skills are ignored in OpenSwarm mode.
+---
+
+# Ignored Skill
+`,
+                ),
+                Bun.write(
+                  path.join(dir, ".claude", "skills", "claude-skill", "SKILL.md"),
+                  `---
+name: claude-skill
+description: Should not load when OPENSWARM_SKILLS_DIR is configured.
+---
+
+# Claude Skill
+`,
+                ),
+              ]),
+            )
+
+            const skill = yield* Skill.Service
+            const list = yield* skill.all()
+            expect(list.map((item) => item.name)).toEqual(["openswarm-skill"])
+          }),
+        ),
       { git: true },
     ),
   )

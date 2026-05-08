@@ -36,6 +36,7 @@ export type AgencyProviderOptions = {
   agency?: string
   recipientAgent?: string
   recipientAgentSelectedAt?: number
+  workingDirectory?: string
   discoveryTimeoutMs: number
   rawOptions: Record<string, unknown>
 }
@@ -73,6 +74,7 @@ export function readAgencyProviderOptions(input: {
   const recipientAgentSelectedAt =
     readPositiveNumber(options?.["recipientAgentSelectedAt"]) ??
     readPositiveNumber(options?.["recipient_agent_selected_at"])
+  const workingDirectory = readString(options?.["workingDirectory"]) ?? readString(options?.["working_directory"])
   const discoveryTimeoutMs =
     readPositiveNumber(options?.["discoveryTimeoutMs"]) ??
     readPositiveNumber(options?.["discovery_timeout_ms"]) ??
@@ -85,6 +87,7 @@ export function readAgencyProviderOptions(input: {
     agency,
     recipientAgent,
     recipientAgentSelectedAt,
+    workingDirectory,
     discoveryTimeoutMs,
     rawOptions: (options && typeof options === "object" ? options : {}) as Record<string, unknown>,
   }
@@ -367,7 +370,7 @@ export function displayRunOnlyAgentLabel(input: {
   localAgentName: string
 }) {
   if (!input.frameworkMode) return displayAgentName(input.localAgentName)
-  return input.recipientLabel ?? "Run"
+  return input.recipientLabel ?? "Swarm: Choose swarm"
 }
 
 export function displayRunOnlyModeLabel(input: { frameworkMode: boolean; mode: string }) {

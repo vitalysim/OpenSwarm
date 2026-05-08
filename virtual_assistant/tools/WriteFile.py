@@ -2,6 +2,7 @@ import os
 
 from agency_swarm.tools import BaseTool
 from pydantic import Field
+from workspace_context import resolve_output_path
 
 
 class WriteFile(BaseTool):
@@ -11,28 +12,27 @@ class WriteFile(BaseTool):
     Usage:
     - This tool will overwrite the existing file if there is one at the provided path.
     - If this is an existing file, you MUST use the ReadFile tool first to read the file's contents.
-    - The file_path must be an absolute path.
+    - Relative paths are resolved against the current OpenSwarm working directory.
     """
 
     file_path: str = Field(
         ...,
-        description="Absolute path to the file to write.",
+        description="Path to the file to write. Relative paths resolve from the current working directory.",
     )
     content: str = Field(..., description="The content to write to the file")
 
     def run(self):
         try:
-            if not os.path.isabs(self.file_path):
-                return f"Error: File path must be absolute: {self.file_path}"
+            resolved_path = resolve_output_path(self.file_path)
 
-            file_exists = os.path.exists(self.file_path)
+            file_exists = resolved_path.exists()
 
             if file_exists:
-                if not os.path.isfile(self.file_path):
-                    return f"Error: Path exists but is not a file: {self.file_path}"
+                if not resolved_path.is_file():
+                    return f"Error: Path exists but is not a file: {resolved_path}"
                 operation = "overwritten"
             else:
-                directory = os.path.dirname(self.file_path)
+                directory = os.path.dirname(str(resolved_path))
                 if directory and not os.path.exists(directory):
                     try:
                         os.makedirs(directory, exist_ok=True)
@@ -41,15 +41,15 @@ class WriteFile(BaseTool):
                 operation = "created"
 
             try:
-                with open(self.file_path, "w", encoding="utf-8") as file:
+                with open(resolved_path, "w", encoding="utf-8") as file:
                     file.write(self.content)
 
-                file_size = os.path.getsize(self.file_path)
+                file_size = os.path.getsize(resolved_path)
                 line_count = self.content.count("\n") + (
                     1 if self.content and not self.content.endswith("\n") else 0
                 )
 
-                abs_path = os.path.abspath(self.file_path)
+                abs_path = os.path.abspath(resolved_path)
                 try:
                     if hasattr(self, '_context') and self._context is not None:
                         read_files = self._context.get("read_files", set())
@@ -58,7 +58,7 @@ class WriteFile(BaseTool):
                 except (AttributeError, TypeError):
                     pass
 
-                return f"Successfully {operation} file: {self.file_path}\nSize: {file_size} bytes, Lines: {line_count}"
+                return f"Successfully {operation} file: {resolved_path}\nSize: {file_size} bytes, Lines: {line_count}"
 
             except PermissionError:
                 return f"Error: Permission denied writing to file: {self.file_path}"
@@ -92,4 +92,3 @@ if __name__ == "__main__":
     if os.path.exists(test_file_path):
         os.remove(test_file_path)
         print("\nTest file cleaned up.")
-

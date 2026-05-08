@@ -17,6 +17,7 @@ import {
   resolveAgencyTargetFromPicker,
   resolveAgencyTargetSelection,
 } from "../util/agency-target"
+import { updateAgencyProviderConfig } from "../util/agency-provider-config"
 
 type AgentOptionValue =
   | {
@@ -313,25 +314,13 @@ export function DialogAgent() {
       recipientAgent: selected?.recipientAgent ?? null,
     })
 
-    await sdk.client.global.config.update(
-      {
-        config: {
-          model: `${AgencySwarmAdapter.PROVIDER_ID}/${AgencySwarmAdapter.DEFAULT_MODEL_ID}`,
-          provider: {
-            [AgencySwarmAdapter.PROVIDER_ID]: {
-              name: "agency-swarm",
-              options: nextOptions,
-            },
-          },
-        },
-      },
-      {
-        throwOnError: true,
-      },
-    )
-
-    await sdk.client.instance.dispose()
-    await sync.bootstrap()
+    await updateAgencyProviderConfig({
+      client: sdk.client,
+      sync,
+      nextOptions,
+      fetch: sdk.fetch,
+      url: sdk.url,
+    })
     dialog.clear()
 
     const selectedMessage =

@@ -58,6 +58,7 @@ virtual_assistant/
   tools/
 
 shared_tools/             ← tools available to all agents (Composio integrations, etc.)
+openswarm_skills/         ← provider-neutral project skills consumed by all models
 
 packages/openswarm-tui/   ← vendored AgentSwarm/OpenCode TUI source controlled by this repo
 ```
@@ -73,6 +74,22 @@ packages/openswarm-tui/   ← vendored AgentSwarm/OpenCode TUI source controlled
 3. Defines communication flows — who can talk to whom
 
 The default pattern is **orchestrator-to-all**: the orchestrator can send messages to every specialist, and all agents can hand off to each other.
+
+---
+
+## Patched TUI Fork
+
+OpenSwarm controls its own AgentSwarm/OpenCode TUI fork under `packages/openswarm-tui/`. This is not a read-only upstream dependency. We patch it for OpenSwarm-specific behavior such as swarm selection, per-agent model visibility, subscription-backed model routing, and project working-directory controls.
+
+When changing TUI source:
+
+- Edit the vendored source under `packages/openswarm-tui/packages/opencode/`.
+- Run `npm run build:tui` from the repo root so the local `dist/.../bin/agentswarm` binary includes the change.
+- Restart OpenSwarm after rebuilding; otherwise the running TUI may still use an older binary.
+- Do not commit generated TUI binaries (`packages/openswarm-tui/**/dist/**` or root `openswarm-tui-*`) unless the user explicitly asks for release artifacts.
+- Validate TUI behavior with targeted Bun tests and, for visible terminal behavior, the Agent Swarm TUI E2E tests.
+
+The Python launcher prefers the freshly built local TUI binary when present. If the binary is older than key TUI source files, `run_utils.py` prints a warning to rebuild with `npm run build:tui`.
 
 ---
 
@@ -118,6 +135,8 @@ The coding agent will read this file, understand the structure, and make the rig
 - `instructions.md` is the agent's system prompt — edit it to change behavior
 - Tools live in `tools/` and are auto-loaded by the agent definition
 - `shared_tools/` contains Composio-powered integrations (Gmail, Slack, GitHub, etc.) available to all agents
+- OpenSwarm skills live in `openswarm_skills/<skill-name>/SKILL.md` and are loaded through `ListOpenSwarmSkills` / `LoadOpenSwarmSkill`, not provider-native global skill folders.
+- OpenSwarm skills v1 are instructions and read-only resources only; do not execute scripts from skill folders.
 - Models are configured via `DEFAULT_MODEL` and optional per-agent model env vars in `.env` — never hardcoded
 - Use `uv` for Python environments and dependency installation:
   - `uv sync` creates/updates the repo-local `.venv`
@@ -129,7 +148,7 @@ The coding agent will read this file, understand the structure, and make the rig
   - `subscription/claude` uses the local Claude Code login
 - Web research uses `WebResearchSearch`, which can use Codex/Claude Code subscription search first and OpenAI/SearchAPI as fallback (`WEB_SEARCH_MODE`, `WEB_SEARCH_PROVIDER_ORDER`, `WEB_SEARCH_DEEP_MIX`)
 - Check model/API/service authentication with `uv run python onboard.py --status`
-- The terminal UI fork lives in `packages/openswarm-tui`. Build/release assets are named `openswarm-tui-*`, and local downloaded binaries must not be committed.
+- The terminal UI fork lives in `packages/openswarm-tui`; after TUI source edits, rebuild with `npm run build:tui` before testing or launching.
 
 Before proceeding with agent creation, please read the following instructions carefully:
 

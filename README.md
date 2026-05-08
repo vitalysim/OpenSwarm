@@ -189,6 +189,13 @@ binary download URL locally.
 - [CHANGELOG.md](CHANGELOG.md) tracks notable implementation and release
   changes.
 
+**Project-local skills:**
+
+OpenSwarm skills live in `openswarm_skills/<skill-name>/SKILL.md`. They are
+provider-neutral instructions and read-only resources that agents can load
+through shared tools, so they work the same across OpenAI, Codex subscription,
+Claude Code subscription, Anthropic API, and future backends.
+
 ---
 
 ## 📺 Learn More

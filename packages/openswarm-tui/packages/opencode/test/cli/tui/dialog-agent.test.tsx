@@ -11,6 +11,8 @@ import * as DialogContext from "../../../src/cli/cmd/tui/ui/dialog"
 import * as DialogSelectModule from "../../../src/cli/cmd/tui/ui/dialog-select"
 import * as ToastModule from "../../../src/cli/cmd/tui/ui/toast"
 
+const originalConfigContent = process.env.OPENCODE_CONFIG_CONTENT
+
 function flushEffects() {
   return Promise.resolve().then(() => Promise.resolve())
 }
@@ -18,6 +20,11 @@ function flushEffects() {
 describe("DialogAgent agency selection", () => {
   afterEach(() => {
     mock.restore()
+    if (originalConfigContent === undefined) {
+      delete process.env.OPENCODE_CONFIG_CONTENT
+    } else {
+      process.env.OPENCODE_CONFIG_CONTENT = originalConfigContent
+    }
   })
 
   test("selecting a swarm row uses live labels without forcing an agent", async () => {
@@ -26,6 +33,24 @@ describe("DialogAgent agency selection", () => {
     const dispose = mock(async () => undefined)
     const bootstrap = mock(async () => undefined)
     const toastShow = mock(() => undefined)
+    process.env.OPENCODE_CONFIG_CONTENT = JSON.stringify({
+      $schema: "https://opencode.ai/config.json",
+      theme: "system",
+      model: `${AgencySwarmAdapter.PROVIDER_ID}/${AgencySwarmAdapter.DEFAULT_MODEL_ID}`,
+      provider: {
+        [AgencySwarmAdapter.PROVIDER_ID]: {
+          name: "Agency Swarm",
+          options: {
+            baseURL: "http://127.0.0.1:8000",
+            agency: "local-agency",
+            workingDirectory: "/tmp/project",
+            clientConfig: {
+              model: "subscription/codex",
+            },
+          },
+        },
+      },
+    })
 
     spyOn(AgencySwarmAdapter, "discover").mockResolvedValue({
       agencies: [
@@ -45,6 +70,20 @@ describe("DialogAgent agency selection", () => {
               id: "ExampleAgent2",
               name: "ExampleAgent2",
               isEntryPoint: false,
+            },
+          ],
+        },
+        {
+          id: "security-research",
+          name: "Security Research",
+          description: "Threat intelligence route",
+          metadata: {},
+          agents: [
+            {
+              id: "SecurityResearchLead",
+              name: "SecurityResearchLead",
+              description: "Security research entry point",
+              isEntryPoint: true,
             },
           ],
         },
@@ -191,6 +230,10 @@ describe("DialogAgent agency selection", () => {
               options: {
                 baseURL: "http://127.0.0.1:8000",
                 agency: "local-agency",
+                workingDirectory: "/tmp/project",
+                clientConfig: {
+                  model: "subscription/codex",
+                },
               },
             },
           },
@@ -244,5 +287,31 @@ describe("DialogAgent agency selection", () => {
     expect(agentOptions.agency).toBe("local-agency")
     expect(agentOptions.recipientAgent).toBe("ExampleAgent2")
     expect(typeof agentOptions.recipientAgentSelectedAt).toBe("number")
+
+    const securityOption = selectProps?.options.find((option) => option.title === "Security Research")
+    expect(securityOption).toBeDefined()
+
+    selectProps!.onSelect!(securityOption!)
+    await flushEffects()
+    await Bun.sleep(0)
+    await flushEffects()
+
+    const securityUpdateInput = configUpdate.mock.calls[2]?.[0] as any
+    const securityOptions = securityUpdateInput.config.provider[AgencySwarmAdapter.PROVIDER_ID].options
+    expect(securityOptions.agency).toBe("security-research")
+    expect(securityOptions.recipientAgent).toBeNull()
+    expect(securityOptions.workingDirectory).toBe("/tmp/project")
+    expect(securityOptions.clientConfig).toEqual({
+      model: "subscription/codex",
+    })
+
+    const envConfig = JSON.parse(process.env.OPENCODE_CONFIG_CONTENT!)
+    expect(envConfig.theme).toBe("system")
+    expect(envConfig.provider[AgencySwarmAdapter.PROVIDER_ID].options.agency).toBe("security-research")
+    expect(toastShow).toHaveBeenCalledWith({
+      variant: "success",
+      message: "Selected swarm Security Research",
+      duration: 3000,
+    })
   })
 })
