@@ -34,6 +34,10 @@ and uses semantic versioning where packaged releases allow it.
 - Added `OPENSWARM_MODEL_TIMEOUT_SECONDS` for optional model-call timeouts; by
   default OpenSwarm no longer hard-stops subscription or slide model calls at
   180 seconds.
+- Added request-local model failover for clear quota/rate/usage-limit errors,
+  controlled by `OPENSWARM_MODEL_FAILOVER`,
+  `OPENSWARM_MODEL_FAILOVER_ORDER`, and
+  `OPENSWARM_MODEL_FAILOVER_MAX_ATTEMPTS`.
 - Added runtime per-agent model controls for OpenSwarm agents.
 - Added OpenSwarm TUI model status display so the prompt footer shows the active
   backend model instead of only `agency-swarm/default`.
@@ -58,6 +62,9 @@ and uses semantic versioning where packaged releases allow it.
 - Centralized agent `ModelSettings` creation in `config.py` so initial startup
   and live model switching use the same OpenAI/subscription/LiteLLM rules.
 - Updated every agent factory to use the centralized model-settings helper.
+- Updated streaming subscription models to emit response stream events only
+  after the backing CLI call succeeds, so runtime failover can switch models
+  without leaving partial response state.
 - Updated onboarding to share model option definitions with the runtime model
   registry.
 - Updated document, slide, image, video, file, and security research tools to

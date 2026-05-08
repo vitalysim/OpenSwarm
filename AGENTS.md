@@ -59,6 +59,7 @@ virtual_assistant/
 
 shared_tools/             ← tools available to all agents (Composio integrations, etc.)
 openswarm_skills/         ← provider-neutral project skills consumed by all models
+model_failover.py         ← request-local fallback for quota/rate/usage model failures
 
 packages/openswarm-tui/   ← vendored AgentSwarm/OpenCode TUI source controlled by this repo
 ```
@@ -139,6 +140,7 @@ The coding agent will read this file, understand the structure, and make the rig
 - OpenSwarm skills v1 are instructions and read-only resources only; do not execute scripts from skill folders.
 - Models are configured via `DEFAULT_MODEL` and optional per-agent model env vars in `.env` — never hardcoded
 - OpenSwarm does not hard-timeout model calls by default. `OPENSWARM_MODEL_TIMEOUT_SECONDS` can opt into a positive timeout; blank/`0`/`none` disables the OpenSwarm-side model timeout.
+- `model_failover.py` wraps configured models and retries only clear quota/rate/usage-limit failures using `OPENSWARM_MODEL_FAILOVER_ORDER`. Failover is temporary per request and must not persist fallback choices to `.env`.
 - Use `uv` for Python environments and dependency installation:
   - `uv sync` creates/updates the repo-local `.venv`
   - `uv sync --group dev` includes test dependencies

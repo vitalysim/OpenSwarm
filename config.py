@@ -90,6 +90,13 @@ def build_model_settings_for_value(
 
 def resolve_model_id(model: str):
     """Return an Agency Swarm-compatible model object/id for a raw model id."""
+    from model_failover import maybe_wrap_model  # noqa: PLC0415
+
+    return maybe_wrap_model(model, resolve_model_id_without_failover(model))
+
+
+def resolve_model_id_without_failover(model: str):
+    """Return a model object/id without request-local fallback wrapping."""
     return _resolve(model)
 
 

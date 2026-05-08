@@ -54,6 +54,24 @@ class _CliResult:
     raw: Any
 
 
+class SubscriptionCliError(RuntimeError):
+    """Typed CLI adapter error so runtime failover can classify provider limits."""
+
+    def __init__(
+        self,
+        backend: str,
+        message: str,
+        *,
+        status: int | None = None,
+        payload: Any | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.backend = backend
+        self.status = status
+        self.api_error_status = status
+        self.payload = payload
+
+
 class SubscriptionModel(Model):
     """OpenAI Agents SDK model wrapper around Codex or Claude Code CLI."""
 
@@ -109,13 +127,6 @@ class SubscriptionModel(Model):
         async def _buffered_stream():
             response_id = f"resp_{uuid.uuid4().hex}"
             sequence_number = 0
-            yield ResponseCreatedEvent(
-                response=_response_shell(response_id, self.model_name, status="in_progress"),
-                type="response.created",
-                sequence_number=sequence_number,
-            )
-            sequence_number += 1
-
             model_response = await self.get_response(
                 system_instructions,
                 input,
@@ -128,6 +139,13 @@ class SubscriptionModel(Model):
                 conversation_id=conversation_id,
                 prompt=prompt,
             )
+
+            yield ResponseCreatedEvent(
+                response=_response_shell(response_id, self.model_name, status="in_progress"),
+                type="response.created",
+                sequence_number=sequence_number,
+            )
+            sequence_number += 1
 
             async for event in _stream_model_response(
                 model_response=model_response,
@@ -406,7 +424,12 @@ def _run_claude(prompt: str, model: str | None, timeout_seconds: int | None) -> 
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"Claude CLI returned non-JSON output: {result.stdout[:500]}") from exc
     if payload.get("is_error"):
-        raise RuntimeError(payload.get("result") or payload.get("api_error_status") or "Claude CLI call failed.")
+        raise SubscriptionCliError(
+            "claude",
+            str(payload.get("result") or payload.get("api_error_status") or "Claude CLI call failed."),
+            status=_int_or_none(payload.get("api_error_status")),
+            payload=payload,
+        )
     text = payload.get("result") or ""
     raw_usage = payload.get("usage") or {}
     usage = Usage(
@@ -439,8 +462,36 @@ def _run_command(cmd: list[str], stdin: str, timeout_seconds: int | None) -> sub
         ) from exc
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "").strip()
-        raise RuntimeError(f"{cmd[0]} failed: {detail}")
+        raise SubscriptionCliError(
+            cmd[0],
+            f"{cmd[0]} failed: {detail}",
+            status=_extract_status_code(detail),
+            payload={
+                "returncode": result.returncode,
+                "stderr": result.stderr,
+                "stdout": result.stdout,
+            },
+        )
     return result
+
+
+def _extract_status_code(text: str) -> int | None:
+    if not text:
+        return None
+    for pattern in (r'"api_error_status"\s*:\s*(\d{3})', r"\bstatus(?:_code)?\D+(\d{3})\b"):
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            return _int_or_none(match.group(1))
+    return None
+
+
+def _int_or_none(value: Any) -> int | None:
+    try:
+        if value is None:
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _build_protocol_prompt(

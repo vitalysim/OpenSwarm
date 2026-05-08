@@ -128,6 +128,11 @@ set `OPENSWARM_MODEL_TIMEOUT_SECONDS` to a positive number of seconds; leave it
 blank or set `0`/`none` to keep model calls unbounded until canceled or stopped
 by the provider.
 
+OpenSwarm can also retry a single model call on clear quota/rate/usage-limit
+errors. Set `OPENSWARM_MODEL_FAILOVER=auto` and adjust
+`OPENSWARM_MODEL_FAILOVER_ORDER` to choose the fallback order. Failover is
+temporary for that request and does not rewrite the agent's configured model.
+
 Tools gracefully degrade when keys are missing — you'll get clear instructions on what to add.
 
 ---

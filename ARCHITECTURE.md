@@ -152,6 +152,23 @@ integer to opt into a hard model-call timeout; blank, `0`, `none`, or
 provider/CLI stops them. Tool-level timeouts, such as web search, browser
 rendering, LibreOffice, and HTTP downloads, remain separate.
 
+Request-local failover lives in `model_failover.py`. `config.resolve_model_id`
+wraps every configured agent model in `FailoverModel` unless
+`OPENSWARM_MODEL_FAILOVER` is disabled. The wrapper catches only quota, rate, or
+usage-limit signals at the model-call boundary and retries the same model input
+with the next available model from `OPENSWARM_MODEL_FAILOVER_ORDER`. It does not
+retry authentication failures, generic tool errors, or timeouts, and it does not
+persist the fallback to `.env`.
+
+For streaming runs, `FailoverModel.stream_response` emits a
+`raw_response_event` payload with `type: "openswarm_model_failover"` before and
+after a fallback attempt. The TUI handles that event in
+`packages/openswarm-tui/.../src/session/agency-swarm.ts` and shows a toast so
+the user sees when a temporary model switch happened. Subscription-backed
+streaming intentionally waits until the CLI call succeeds before emitting
+`response.created`, which prevents a failed subscription call from leaving
+partial stream state before failover begins.
+
 ## Authentication And Service Status
 
 `auth_registry.py` defines every provider and service:

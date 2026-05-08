@@ -15,6 +15,7 @@
         "config.py",
         "auth_registry.py",
         "model_control.py",
+        "model_failover.py",
         "openswarm_skill_registry.py",
         "swarm_registry.py",
         "subscription_models.py",

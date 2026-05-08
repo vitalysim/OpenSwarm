@@ -15,6 +15,8 @@ import {
   OPENAI_BASED_LITELLM_PROVIDERS,
 } from "@/agency-swarm/litellm-provider"
 import { Auth } from "@/auth"
+import { Bus } from "@/bus"
+import { TuiEvent } from "@/cli/cmd/tui/event"
 import { Env } from "@/env"
 import { CODEX_API_BASE_URL, extractAccountId, refreshAccessToken } from "@/plugin/codex"
 import { Provider } from "@/provider/provider"
@@ -740,6 +742,31 @@ export namespace SessionAgencySwarm {
         cachedInputTokens,
         cacheWriteInputTokens,
         cost: rawCost ?? usage?.cost,
+      }
+    }
+
+    const showModelFailoverToast = async (event: Record<string, unknown>) => {
+      const phase = asString(event["phase"]) ?? asString(event["status"]) ?? "retrying"
+      const from = asString(event["from"]) ?? asString(event["original_model"]) ?? "current model"
+      const to = asString(event["to"]) ?? asString(event["fallback_model"]) ?? "fallback model"
+      const detail = asString(event["detail"]) ?? asString(event["reason"])
+      const suffix = detail ? ` (${detail})` : ""
+      const message =
+        phase === "succeeded"
+          ? `Model failover succeeded: ${to}`
+          : phase === "failed"
+            ? `Model failover failed: ${to}${suffix}`
+            : `Model limit hit on ${from}; retrying with ${to}${suffix}`
+      try {
+        await Bus.publish(TuiEvent.ToastShow, {
+          variant: phase === "failed" ? "error" : phase === "succeeded" ? "success" : "warning",
+          message,
+          duration: phase === "succeeded" ? 4000 : 7000,
+        })
+      } catch (error) {
+        log.warn("failed to publish model failover toast", {
+          error: error instanceof Error ? error.message : String(error),
+        })
       }
     }
 
@@ -1811,6 +1838,11 @@ export namespace SessionAgencySwarm {
             const item = asRecord(nested["item"])
 
             if (!responseType) {
+              continue
+            }
+
+            if (responseType === "openswarm_model_failover") {
+              await showModelFailoverToast(nested)
               continue
             }
 

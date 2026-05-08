@@ -21,6 +21,8 @@ OpenSwarm also owns a provider-neutral skill layer in `openswarm_skills/`. Agent
 
 Model calls do not have an OpenSwarm hard timeout by default. `OPENSWARM_MODEL_TIMEOUT_SECONDS` is the opt-in override for subscription CLIs and other OpenSwarm-owned model worker calls; blank/`0`/`none` means let the user cancel or the provider stop the request.
 
+OpenSwarm wraps configured agent models with `model_failover.py`. It retries only clear quota, rate-limit, and usage-limit failures at the model-call boundary, using `OPENSWARM_MODEL_FAILOVER_ORDER`. This is request-local: do not persist fallback model choices to `.env`, and do not retry generic tool errors, authentication failures, or timeouts as model failover.
+
 When changing TUI behavior:
 
 1. Edit source under `packages/openswarm-tui/packages/opencode/`.

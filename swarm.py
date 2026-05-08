@@ -6,6 +6,7 @@ from patches.patch_file_attachment_refs import apply_file_attachment_reference_p
 from patches.patch_ipython_interpreter_composio import apply_ipython_composio_context_patch
 from patches.patch_openswarm_model_control import apply_openswarm_model_control_patch
 from patches.patch_utf8_file_reads import apply_utf8_file_read_patch
+from model_failover import apply_model_failover_endpoint_patch
 
 load_dotenv()
 
@@ -13,6 +14,7 @@ apply_utf8_file_read_patch()
 apply_dual_comms_patch()
 apply_file_attachment_reference_patch()
 apply_ipython_composio_context_patch()
+apply_model_failover_endpoint_patch()
 apply_openswarm_model_control_patch()
 
 _tracing_key = os.getenv("OPENAI_API_KEY")
